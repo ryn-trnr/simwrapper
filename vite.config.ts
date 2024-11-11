@@ -9,7 +9,7 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    base: '/',
+    base: '/simwrapper/',
     build: { sourcemap: true },
     plugins: [
       // vue
