@@ -6,7 +6,7 @@
     <script>
       // baseURL below MUST reflect base folder of built site;
       // example: '/simwrapper/' for https://vsp.berlin/simwrapper/
-      const baseURL = '/'
+      const baseURL = '/simwrapper/'
 
       const numRedirects = Number.parseInt(localStorage?.numRedirects || '0') + 1
       localStorage.numRedirects = numRedirects
@@ -14,7 +14,7 @@
 
       let meta = document.createElement('meta')
       meta.httpEquiv = 'refresh'
-      meta.content = `0;URL='${baseURL}?redirect404=${numRedirects}'`
+      meta.content = "0;URL='/simwrapper/'"
 
       document.head.appendChild(meta)
     </script>
