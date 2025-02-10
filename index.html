@@ -11,7 +11,7 @@
 
     <link rel="icon" href="/images/SW_favicon.png" />
 
-    <script src="/src/js/wasm-flate-0.1.11-alpha.js"></script>
+    <script src="/src/js/wasm-flate-0.1.11-alpha.js" type="module"></script>
 
     <link href="/css/font-awesome-5.7.1.css" rel="stylesheet" />
     <link href="/images/SW_favicon.png" rel="icon" type="image/png" />
@@ -76,6 +76,18 @@
     <div id="app"></div>
     <script type="module" src="/src/js/avro-browserify.js"></script>
     <script type="module" src="/src/main.ts"></script>
+    <script>
+    // Request auth tokens from the parent (Amplify app)
+    window.parent.postMessage("requestAuthToken", "*");
+
+    // Listen for the response
+    window.addEventListener("message", (event) => {
+      if (event.data.idToken) {
+        //console.log("Simwrapper received tokens:", event.data.accessToken);
+        // Store or use the tokens as needed
+      }
+    });
+    </script>
     <noscript>
       <strong>
         This advanced browser-based application requires JavaScript to function. Please enable it to

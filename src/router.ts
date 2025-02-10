@@ -77,7 +77,7 @@ const routes = [
 
 const router = new VueRouter({
   mode: 'history',
-  base: '/',
+  base: '/simwrapper/',
   routes,
   // native-like back/forward and top-of-page routing
   scrollBehavior(to, from, savedPosition) {

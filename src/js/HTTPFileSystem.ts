@@ -1,6 +1,8 @@
 import micromatch from 'micromatch'
 import pako from 'pako'
 
+import { fetchAuthSession } from '@aws-amplify/auth';
+
 import {
   DirectoryEntry,
   FileSystemAPIHandle,
@@ -27,6 +29,7 @@ class HTTPFileSystem {
   private fsHandle: FileSystemAPIHandle | null
   private store: any
   private isGithub: boolean
+  private isAWS: boolean
 
   constructor(project: FileSystemConfig, store?: any) {
     this.urlId = project.slug
@@ -34,6 +37,7 @@ class HTTPFileSystem {
     this.fsHandle = project.handle || null
     this.store = store || null
     this.isGithub = !!project.isGithub
+    this.isAWS = !!project.isAWS
 
     this.baseUrl = project.baseURL
     if (!project.baseURL.endsWith('/')) this.baseUrl += '/'
@@ -89,6 +93,8 @@ class HTTPFileSystem {
       return this._getFileFromChromeFileSystem(scaryPath)
     } else if (this.isGithub) {
       return this._getFileFromGitHub(scaryPath)
+    } else if (this.isAWS) {
+      return this._getFileFromAWS(scaryPath)
     } else {
       return this._getFileFetchResponse(scaryPath)
     }
@@ -235,6 +241,46 @@ class HTTPFileSystem {
     return response
   }
 
+  private async _getFileFromAWS(scaryPath: string): Promise<Response> {
+    const path = this.cleanURL(scaryPath);
+    const headers: any = {};
+
+    // Request the token from the parent (Amplify app) using postMessage
+    const token = await new Promise<string>((resolve, reject) => {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data.accessToken) {
+          // Resolve the promise with the received token
+          resolve(event.data.accessToken);
+        } else {
+          reject(new Error('No token received from parent.'));
+        }
+      };
+
+      window.parent.postMessage('requestAuthTokens', '*');
+      window.addEventListener('message', handleMessage, { once: true });
+    });
+
+    if (!token) {
+      throw new Error('No authentication token found. Please log in.');
+    }
+
+    // Use the token for AWS requests
+    headers['Authorization'] = `Bearer ${token}`;
+    console.log(headers['Authorization'] = `Bearer ${token}`);
+
+    // Perform the fetch request
+    const myRequest = new Request(path, { headers });
+    const response = await fetch(myRequest);
+
+    // Check the response status
+    if (!response.ok) {
+      console.error('Error:', response.status);
+      throw new Error(`Failed to fetch file from AWS S3: ${response.statusText}`);
+    }
+
+    return response;
+  }
+
   private async _getDirectoryFromGitHub(scaryPath: string): Promise<DirectoryEntry> {
     let path = scaryPath.replace(/^0-9a-zA-Z_\-\/:+/i, '')
     path = path.replaceAll('//', '/')
@@ -334,6 +380,7 @@ class HTTPFileSystem {
 
       if (this.fsHandle) dirEntry = await this.getDirectoryFromHandle(stillScaryPath)
       else if (this.isGithub) dirEntry = await this._getDirectoryFromGitHub(stillScaryPath)
+      else if (this.isAWS) dirEntry = await this._getDirectoryFromAWS(stillScaryPath)
       else dirEntry = await this.getDirectoryFromURL(stillScaryPath)
 
       CACHE[this.urlId][stillScaryPath] = dirEntry
@@ -342,6 +389,89 @@ class HTTPFileSystem {
       throw Error('' + e)
     }
   }
+
+  private async _getDirectoryFromAWS(scaryPath: string): Promise<DirectoryEntry> {
+    const path = this.cleanURL(scaryPath);
+    const headers: Record<string, string> = {};
+
+    // Request and receive the message from Amplify containing the username and access token
+    const { token, username } = await new Promise<{ token: string; username: string }>((resolve, reject) => {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data.accessToken && event.data.username) {
+          resolve({
+            token: event.data.accessToken,
+            username: event.data.username,
+          });
+        } else {
+          reject(new Error("No token or username received from parent."));
+        }
+      };
+
+      window.parent.postMessage("requestAuthToken", "*");
+      window.addEventListener("message", handleMessage, { once: true });
+    });
+
+    if (!token || !username) {
+      throw new Error("No authentication token or username found. Please log in.");
+    }
+
+    // Use the token for AWS requests
+    headers["Authorization"] = `Bearer ${token}`;
+
+    // Construct the CloudFront URL to fetch the directory listing
+    const userScenariosPath = `user-scenarios/${username}/`;
+    const fullPath = `${path}${userScenariosPath}`;
+
+    // Make a GET request to fetch the directory listing (HTML response from Lambda)
+    const response = await fetch(fullPath, { method: "GET", headers });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch AWS directory: ${response.statusText}`);
+    }
+
+    // Extract text response (HTML)
+    const htmlText = await response.text();
+
+    // Parse HTML to extract files and directories
+    const { files, dirs } = this.parseHtmlDirectoryListing(htmlText);
+
+    // Return a DirectoryEntry object
+    return {
+      files,
+      dirs,
+      handles: {}, // Add any additional metadata if needed
+      html: htmlText, // Store the raw HTML for display
+    };
+  }
+
+  /**
+   * Parses the HTML directory listing (generated by Lambda) into files and directories.
+   */
+  private parseHtmlDirectoryListing(htmlText: string): { files: string[]; dirs: string[] } {
+    const files: string[] = [];
+    const dirs: string[] = [];
+
+    // Create a temporary DOM parser
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, "text/html");
+
+    // Find all <a> elements (links to files/directories)
+    const links = doc.querySelectorAll("a");
+
+    links.forEach((link) => {
+      const href = link.getAttribute("href");
+      if (href) {
+        if (href.endsWith("/")) {
+          dirs.push(href);
+        } else {
+          files.push(href);
+        }
+      }
+    });
+
+    return { files, dirs };
+  }
+
 
   // might pass in the global store, or not
   async getDirectoryFromHandle(stillScaryPath: string, store?: any) {
@@ -435,7 +565,7 @@ class HTTPFileSystem {
             configFolders.push(`${currentPath}/${dir}`.replaceAll('//', '/'))
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // also add current working folder as final option, which supersedes all others

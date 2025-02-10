@@ -158,6 +158,7 @@ export interface FileSystemConfig {
   handle?: FileSystemAPIHandle
   example?: boolean
   isGithub?: boolean
+  isAWS?: boolean
 }
 
 export interface VisualizationPlugin {
@@ -170,6 +171,7 @@ export interface DirectoryEntry {
   files: string[]
   dirs: string[]
   handles: { [name: string]: FileSystemAPIHandle }
+  html?: string
 }
 
 export enum ColorScheme {

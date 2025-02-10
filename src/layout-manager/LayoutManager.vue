@@ -344,8 +344,34 @@ export default defineComponent({
     },
 
     async buildLayoutFromURL() {
-      let pathMatch = this.$route.params.pathMatch
-      if (pathMatch.startsWith('/')) pathMatch = pathMatch.slice(1)
+      let pathMatch = this.$route.params.pathMatch;
+      if (pathMatch.startsWith('/')) pathMatch = pathMatch.slice(1);
+
+      // Handle S3 bucket paths
+      if (pathMatch.startsWith('s3')) {
+        const s3Projects: FileSystemConfig[] = this.$store.state.svnProjects.filter(
+          (a: any) => a.slug === 's3' // Filter by the S3 slug
+        );
+        if (!s3Projects.length) throw Error('no such S3 project');
+        const fileSystem = s3Projects[0];
+
+        // Extract the subfolder from the path
+        const slashIndex = pathMatch.indexOf('/');
+        const subfolder = slashIndex > -1 ? pathMatch.substring(slashIndex + 1) : '';
+
+        // Handle S3-specific logic here
+        this.panels = [
+          [
+            {
+              key: Math.random(),
+              title: fileSystem.name,
+              component: 'TabbedDashboardView',
+              props: { root: 's3', xsubfolder: subfolder } as any,
+            },
+          ],
+        ];
+        return;
+      }
 
       // splash page:
       if (!pathMatch || pathMatch === '/') {

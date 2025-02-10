@@ -106,6 +106,7 @@ let fileSystems: FileSystemConfig[] = [
     baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries',
     thumbnail: '/simwrapper/images/thumb-chart.jpg',
     skipList: ['episim/battery'],
+    hidden: true,
   },
   {
     name: 'Berlin Open Scenario v6.3',
@@ -115,6 +116,7 @@ let fileSystems: FileSystemConfig[] = [
     baseURL:
       'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v6.3/output/berlin-v6.3-10pct/',
     example: true,
+    hidden: true,
   },
   {
     name: 'Visualization Examples',
@@ -123,6 +125,7 @@ let fileSystems: FileSystemConfig[] = [
     thumbnail: 'images/thumb-localfiles.jpg',
     baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/shared/simwrapper',
     example: true,
+    hidden: true,
   },
   {
     name: 'Hamburg RealLabHH',
@@ -133,6 +136,7 @@ let fileSystems: FileSystemConfig[] = [
       'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/hamburg/hamburg-v2/hamburg-v2.2/viz',
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
     example: true,
+    hidden: true,
   },
   {
     name: 'Berlin BENE Project',
@@ -141,7 +145,7 @@ let fileSystems: FileSystemConfig[] = [
     baseURL:
       'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/projects/bene/website',
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
-    hidden: false,
+    hidden: true,
     example: true,
   },
   {
@@ -150,6 +154,7 @@ let fileSystems: FileSystemConfig[] = [
     description: 'Files shared using "simwrapper serve"',
     baseURL: 'http://localhost:8000',
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
+    hidden: true,
   },
   {
     name: 'KoMoDnext',
@@ -161,6 +166,14 @@ let fileSystems: FileSystemConfig[] = [
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
     hidden: true,
   },
+  {
+    name: 'Uploaded Scenarios',
+    slug: 's3',
+    description: 'Authenticated access to S3 bucket',
+    baseURL: 'https://d3o15hrk68p27o.cloudfront.net',
+    isAWS: true,
+    hidden: false
+  }
 ]
 
 for (let port = 8000; port < 8049; port++) {
