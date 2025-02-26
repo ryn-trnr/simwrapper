@@ -1,5 +1,6 @@
 import micromatch from 'micromatch'
 import pako from 'pako'
+import naturalSort from 'javascript-natural-sort'
 
 import {
   DirectoryEntry,
@@ -8,6 +9,8 @@ import {
   YamlConfigs,
   PIECES,
 } from '@/Globals'
+
+naturalSort.insensitive = true
 
 // GitHub doesn't tell us the type of file, so we have to guess by filename extension
 const BINARIES = /.*\.(avro|dbf|gpkg|gz|h5|jpg|jpeg|omx|png|shp|shx|sqlite|zip|zst)$/
@@ -380,12 +383,16 @@ class HTTPFileSystem {
 
     try {
       // Generate and cache the listing
-      let dirEntry
+      let dirEntry: DirectoryEntry
 
       if (this.fsHandle) dirEntry = await this.getDirectoryFromHandle(stillScaryPath)
       else if (this.isGithub) dirEntry = await this._getDirectoryFromGitHub(stillScaryPath)
       else if (this.needsAuth) dirEntry = await this._getDirectoryFromAWS(stillScaryPath)
       else dirEntry = await this.getDirectoryFromURL(stillScaryPath)
+
+      // human-friendly sort
+      dirEntry.dirs.sort((a, b) => naturalSort(a, b))
+      dirEntry.files.sort((a, b) => naturalSort(a, b))
 
       CACHE[this.urlId][stillScaryPath] = dirEntry
       return dirEntry
@@ -617,20 +624,6 @@ class HTTPFileSystem {
         .match(files, config)
         .map(yaml => (yamls.configs[yaml] = `${configFolder}/${yaml}`.replaceAll('//', '/')))
     }
-
-    // Sort them all by filename
-    yamls.dashboards = Object.fromEntries(
-      Object.entries(yamls.dashboards).sort((a, b) => (a[0] > b[0] ? 1 : -1))
-    )
-    yamls.topsheets = Object.fromEntries(
-      Object.entries(yamls.topsheets).sort((a, b) => (a[0] > b[0] ? 1 : -1))
-    )
-    yamls.vizes = Object.fromEntries(
-      Object.entries(yamls.vizes).sort((a, b) => (a[0] > b[0] ? 1 : -1))
-    )
-    yamls.configs = Object.fromEntries(
-      Object.entries(yamls.configs).sort((a, b) => (a[0] > b[0] ? 1 : -1))
-    )
 
     return yamls
   }
