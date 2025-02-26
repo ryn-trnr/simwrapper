@@ -158,7 +158,6 @@ export interface FileSystemConfig {
   handle?: FileSystemAPIHandle
   example?: boolean
   isGithub?: boolean
-  isAWS?: boolean
 }
 
 export interface VisualizationPlugin {

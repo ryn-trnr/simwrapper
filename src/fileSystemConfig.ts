@@ -125,7 +125,7 @@ let fileSystems: FileSystemConfig[] = [
     thumbnail: 'images/thumb-localfiles.jpg',
     baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/shared/simwrapper',
     example: true,
-    hidden: true,
+    hidden: false,
   },
   {
     name: 'Hamburg RealLabHH',
@@ -171,7 +171,7 @@ let fileSystems: FileSystemConfig[] = [
     slug: 's3',
     description: 'Authenticated access to S3 bucket',
     baseURL: 'https://d3o15hrk68p27o.cloudfront.net',
-    isAWS: true,
+    needPassword: true,
     hidden: false
   }
 ]
