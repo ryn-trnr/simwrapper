@@ -27,7 +27,7 @@
         :style="{opacity: tab===activeTab ? 1.0 : 0.75}"
         @click="switchLeftTab(tab,index)"
       )
-        a(v-if="dashboards[tab].header" :href="`${$route.path}?tab=${index+1}`") {{ dashboards[tab].header.tab }}
+        a(v-if="dashboards[tab].header" :href="`#${$route.path}?tab=${index+1}`") {{ dashboards[tab].header.tab }}
         //- a(v-if="dashboards[tab].header" @click="switchLeftTab(tab,index)") {{ dashboards[tab].header.tab }}
 
     .dashboard-content(

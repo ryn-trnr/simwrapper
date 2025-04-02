@@ -38,7 +38,7 @@ export async function getAuthTokenAndUsername(): Promise<{ token: string; userna
 async function getS3BaseURL(): Promise<string> {
   try {
     const { username } = await getAuthTokenAndUsername();
-    return `https://d3o15hrk68p27o.cloudfront.net/user-scenarios/${username}/`;
+    return `https://d3o15hrk68p27o.cloudfront.net/user-scenarios/${username}`;
   } catch (error) {
     console.error('Failed to fetch username:', error);
     // Fallback to a default baseURL or throw an error
@@ -163,7 +163,7 @@ let fileSystems: FileSystemConfig[] = [
     thumbnail: 'images/thumb-localfiles.jpg',
     baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/shared/simwrapper',
     example: true,
-    hidden: false,
+    hidden: true,
   },
   {
     name: 'Hamburg RealLabHH',

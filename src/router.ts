@@ -76,7 +76,7 @@ const routes = [
 // }
 
 const router = new VueRouter({
-  mode: 'history',
+  mode: 'hash',
   base: '/simwrapper/',
   routes,
   // native-like back/forward and top-of-page routing

@@ -2567,11 +2567,17 @@ const MyComponent = defineComponent({
     },
 
     async loadShapefileFeatures(filename: string) {
-      this.statusText = 'Loading shapefile...'
-      console.log('loading', filename)
+      this.statusText = 'Loading shapefile...';
+      console.log('loading', filename);
 
-      const url = `${this.subfolder}/${filename}`
-      let shpPromise, dbfPromise, dbfBlob
+      // Clean both subfolder and filename paths
+      const cleanSubfolder = this.subfolder.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
+      const cleanFilename = filename.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
+      
+      // Construct URL safely
+      const url = `${cleanSubfolder}/${cleanFilename}`.replace(/\/+/g, '/'); // Ensure single slashes
+      
+      let shpPromise, dbfPromise, dbfBlob;
 
       // first, get shp/dbf files
       let geojson: any = {}
