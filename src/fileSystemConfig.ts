@@ -154,7 +154,7 @@ let fileSystems: FileSystemConfig[] = [
     baseURL:
       'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v6.3/output/berlin-v6.3-10pct/',
     example: true,
-    hidden: true,
+    hidden: false,
   },
   {
     name: 'Visualization Examples',
@@ -163,7 +163,7 @@ let fileSystems: FileSystemConfig[] = [
     thumbnail: 'images/thumb-localfiles.jpg',
     baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/shared/simwrapper',
     example: true,
-    hidden: true,
+    hidden: false,
   },
   {
     name: 'Hamburg RealLabHH',
@@ -174,7 +174,7 @@ let fileSystems: FileSystemConfig[] = [
       'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/hamburg/hamburg-v2/hamburg-v2.2/viz',
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
     example: true,
-    hidden: true,
+    hidden: false,
   },
   {
     name: 'Berlin BENE Project',
@@ -184,7 +184,7 @@ let fileSystems: FileSystemConfig[] = [
       'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/projects/bene/website',
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
     hidden: true,
-    example: true,
+    example: false,
   },
   {
     name: 'Localhost:8000',

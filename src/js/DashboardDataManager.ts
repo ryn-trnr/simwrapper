@@ -120,7 +120,7 @@ export default class DashboardDataManager {
   ) {
     try {
       // now with subfolders we need to cache based on subfolder+filename
-      const cacheKey = `${options?.subfolder || this.subfolder}/${config.dataset}`
+      const cacheKey = `${options?.subfolder || this.subfolder}${config.dataset.startsWith('/') ? '' : '/'}${config.dataset}`.replace(/\/+/g, '/');
       // first, get the dataset
       if (!this.datasets[cacheKey]) {
         console.log('LOAD:', cacheKey)

@@ -338,12 +338,17 @@ class HTTPFileSystem {
     return JSON.parse(text);
   }
 
-  async getFileBlob(scaryPath: string): Promise<Blob> {
-    // This can throw lots of errors; we are not going to catch them
-    // here so the code further up can deal with errors properly.
-    // "Throw early, catch late."
-    const response = await this._getFileResponse(scaryPath);
-    return response.blob();
+  async getFileBlob(scaryPath: string, retries = 3): Promise<Blob> {
+    try {
+      const response = await this._getFileResponse(scaryPath);
+      return response.blob();
+    } catch (error) {
+      if (retries > 0 && scaryPath.toLowerCase().endsWith('.shp')) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return this.getFileBlob(scaryPath, retries - 1);
+      }
+      throw error;
+    }
   }
 
   async getFileStream(scaryPath: string): Promise<ReadableStream> {
