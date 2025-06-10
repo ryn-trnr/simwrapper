@@ -1,5 +1,5 @@
 <template lang="pug">
-  .flowmap-page 
+  .flowmap-page
     .flowmap(:class="{'hide-thumbnail': !thumbnail}"
             :style='{"background": urlThumbnail}'
             oncontextmenu="return false")
@@ -12,8 +12,8 @@
         zoom-buttons(v-if="!thumbnail")
 
         .bottom-panel(v-if="!thumbnail")
-          h1 {{`Hours ${slider.filterStartHour} - ${slider.filterEndHour}` }} 
-          .button-row  
+          h1 {{`Hours ${slider.filterStartHour} - ${slider.filterEndHour}` }}
+          .button-row
             time-slider.time-slider(v-if="isLoaded"
             :numHours="numHours"
             :hourlyTotals="hourlyTotals"
@@ -24,14 +24,14 @@
           )
     .right-side-panel
       .metric-label {{  $t('metrics') }}:
-      .metric-buttons 
+      .metric-buttons
         button.button.is-small.metric-button(
           v-for="metric,i in vizDetails.metrics" :key="i"
           :style="{'color': 'white' , 'border': isDarkMode ? `1px solid white` : `1px solid #2A3C4F`, 'border-radius': '4px', 'backgroundColor': isDarkMode ? '#2a3c4f': '#2a3c4f'}" @click="handleClickedMetric(metric)"
           ) {{metric.label}}
       br
       .metric-label {{  $t('color scheme') }}:
-      b-select.form-select(aria-labelledby="lil-gui-name-2" v-model="vizDetails.colorScheme" class="is-small")
+      b-select.form-select(aria-labelledby="lil-gui-name-2" v-model="vizDetails.colorScheme" class="is-small" )
         option(value="Blues") Blues
         option(value="BluGrn") BluGrn
         option(value="BluYl") BluYl
@@ -168,15 +168,26 @@ const MyComponent = defineComponent({
       if (!REACT_VIEW_HANDLES[this.viewId]) return
       REACT_VIEW_HANDLES[this.viewId]()
     },
-    '$store.state.isDarkMode'() { 
+    '$store.state.isDarkMode'() {
       this.isDarkMode = this.$store.state.isDarkMode
-    }
+    },
+
+    vizDetails: function (val) {
+      console.log("color changed")
+      this.vizDetails = val;
+    },
+
+
   },
 
   data() {
     return {
       isLoaded: false,
-      boundaries: [] as any[],
+      stopFacilities: {} as {
+        attributes?: any;
+        transitStops?: any;
+        [key: string]: any; // Allows any additional properties in case transitSchedule changes
+      },
       centroids: [] as any[],
       flows: [] as Flow[],
       filteredFlows: [] as Flow[],
@@ -243,22 +254,21 @@ const MyComponent = defineComponent({
         center: null as any | null,
         pitch: 0,
         bearing: 0,
-        boundaries: '',
-        boundariesJoinCol: '',
-        boundariesLabels: '',
-        boundariesLabel: '',
-        boundariesCentroids: '',
+        stopFacilitiesFile: '',
         network: '',
         dataset: '',
-        colorScheme: 'Teal',
+        colorScheme: '',
         metrics: [{
           label: '',
           dataset: '',
           origin: '',
           destination: '',
           flow: '',
+          transformValue: '',
           colorScheme: '',
         }],
+        selectedMetric: {},
+        selectedMetricLabel: '',
         highlightColor: 'orange',
         fadeEnabled: true,
         fadeAmount: 50,
@@ -283,6 +293,10 @@ const MyComponent = defineComponent({
       this.$store.commit('setFullScreen', !this.thumbnail)
 
       this.myState.thumbnail = this.thumbnail
+
+      // fixed issue of undefined loading on staging
+      this.myState.subfolder = this.subfolder
+
 
       // DataManager might be passed in from the dashboard; or we might be
       // in single-view mode, in which case we need to create one for ourselves
@@ -316,6 +330,8 @@ const MyComponent = defineComponent({
       await this.loadBoundaries()
 
       this.vizDetails = Object.assign({}, this.vizDetails)
+      this.vizDetails.selectedMetricLabel = this.vizDetails.metrics[0].flow
+      this.vizDetails.selectedMetric = this.vizDetails.metrics[0]
       this.slider.labels = ['test', 'test']
       this.slider = Object.assign({}, this.slider)
       await this.configureData(this.vizDetails.metrics[0])
@@ -346,7 +362,7 @@ const MyComponent = defineComponent({
       // Config was passed in from dashboard:
       if (this.configFromDashboard) {
         console.log('we have a dashboard')
-        this.validateYAML()
+        // this.validateYAML()
         console.log(this.configFromDashboard)
         this.vizDetails = Object.assign({}, this.configFromDashboard) as any
         return
@@ -362,6 +378,7 @@ const MyComponent = defineComponent({
     },
 
     async buildThumbnail() {
+      console.log(this.myState.fileApi)
       if (!this.myState.fileApi) return
       if (this.thumbnail && this.vizDetails.thumbnail) {
         try {
@@ -378,9 +395,10 @@ const MyComponent = defineComponent({
       }
     },
 
-    async validateYAML() { },
+    // async validateYAML() { },
 
-    async handleClickedMetric(metric: string) {
+    handleClickedMetric(metric: string) {
+      this.vizDetails.selectedMetric = metric
 
       this.configureData(metric)
 
@@ -486,50 +504,32 @@ const MyComponent = defineComponent({
     async loadBoundaries() {
       let results: any = {}
       try {
-        if (this.vizDetails.boundaries.startsWith('http')) {
-          console.log('in http')
-          const boundaries = await fetch(this.vizDetails.boundaries).then(async r => await r.json())
-          this.boundaries = boundaries
-        } else {
-          // const boundaries = await this.fileApi.getFileJson(
-          //   `${this.subfolder}/${this.vizDetails.boundaries}`
-          // )
-          const { files } = await this.fileApi.getDirectory(this.myState.subfolder)
+        const { files } = await this.fileApi.getDirectory(this.myState.subfolder)
+        console.log(this.myState)
+        const transitSchedule = files.filter(f => f.endsWith('transitSchedule.xml.gz') && !f.startsWith('._'))
+        this.stopFacilities = transitSchedule
 
-          // Road network: first try the most obvious network filename:
-          let network = this.vizDetails.network
+        if (!transitSchedule) {
+          // this.loadingText = 'No road network found.'
+          console.error("no transit schedule found.")
+          this.vizDetails.stopFacilitiesFile = ''
 
-          // if the obvious network file doesn't exist, just grab... the first network file:
-          if (!network) {
-            const allNetworks = files.filter(f => f.endsWith('network.xml.gz') && !f.startsWith('._'))
-            if (allNetworks.length) network = allNetworks[0]
-            else {
-              // this.loadingText = 'No road network found.'
-              console.error("no road network found.")
-              network = ''
-            }
-          }
-
-          // Departures: use them if we are in an output folder (and they exist)
-          // let demandFiles = [] as string[]
-          // if (this.myState.yamlConfig.indexOf('output_transitSchedule') > -1) {
-          //   demandFiles = files.filter(f => f.endsWith('pt_stop2stop_departures.csv.gz'))
-          // }
-          // need to change this for general production
-
-          const boundaries = this.fetchXML({
+        }
+        else {
+          this.vizDetails.stopFacilitiesFile = transitSchedule[0]
+          const data = this.fetchXML({
             worker: this._roadFetcher,
             slug: this.fileSystem.slug,
-            filePath: this.myState.subfolder + '/' + network,
+            filePath: this.myState.subfolder + '/' + this.vizDetails.stopFacilitiesFile,
             options: { attributeNamePrefix: '' },
           })
 
-          results = await Promise.all([boundaries])
-          
-          if (results[0].network.attributes.attribute["#text"]) {
-            this.crs = results[0].network.attributes.attribute["#text"]
+          results = await Promise.all([data])
+          if (results[0] && results[0].transitSchedule) {
+            this.stopFacilities = results[0].transitSchedule
           } else {
-            console.error("no crs in network file found.")
+            console.error("fetched xml didn't have transit schedule")
+
           }
         }
       } catch (e) {
@@ -537,7 +537,7 @@ const MyComponent = defineComponent({
         console.error(e)
         return
       }
-      this.boundaries = results[0].network.nodes.node
+      // this.stopFacilities = results[0].network.nodes.node
       this.calculateCentroids()
       this.setMapCenter()
     },
@@ -550,51 +550,40 @@ const MyComponent = defineComponent({
         return acc;
       }, []);
 
-
       this.filteredFlows = filterFlows
     },
 
     calculateCentroids() {
-      const boundaryLabelField = this.vizDetails.boundariesLabels || this.vizDetails.boundariesLabel
-      for (const feature of this.boundaries) {
-        // let centroid
-        // if (this.vizDetails.boundariesCentroids == '') {
-        // centroid = feature.properties[this.vizDetails.boundariesCentroids]
-        // if (!Array.isArray(centroid)) {
-        //   centroid = centroid.split(',').map((c: any) => parseFloat(c))
-        // }
+      // const boundaryLabelField = this.vizDetails.boundariesLabels || this.vizDetails.boundariesLabel
+      if (this.stopFacilities !== undefined) {
+        // try to get crs from attributes
+        if (this.stopFacilities?.attributes && this.stopFacilities?.attributes?.attribute?.name === "coordinateReferenceSystem") {
+          this.crs = this.stopFacilities?.attributes?.attribute?.["#text"]
+          console.log(this.crs)
+        } else {
+          console.log("no crs found in transit schedule, reverting to WGS 84")
+          this.crs = "EPSG:4326"
+        }
 
-        // Convert the location data
-        // don't hard code CRS
-        const [lon, lat] = Coords.toLngLat(this.crs, [parseFloat(feature.x), parseFloat(feature.y)]);
+        for (const facility of this.stopFacilities.transitStops.stopFacility) {
+          // Convert the location data
+          // don't hard code CRS
+          const [lon, lat] = Coords.toLngLat(this.crs, [parseFloat(facility.x), parseFloat(facility.y)]);
 
-        this.centroids.push({
-          id: feature.id,
-          lon: lon,
-          lat: lat,
-        })
+          this.centroids.push({
+            id: facility.id,
+            lon: lon,
+            lat: lat,
+          })
 
-
-        // } else {
-        //   centroid = turf.centerOfMass(feature as any) as any
-
-        //   if (feature.properties[boundaryLabelField]) {
-        //     centroid.properties.label = feature.properties[boundaryLabelField]
-        //   }
-        //   centroid.properties.id = '' + feature.properties[this.vizDetails.boundariesJoinCol]
-
-        //   this.centroids.push({
-        //     id: `${centroid.properties.id}`,
-        //     lon: centroid.geometry.coordinates[0],
-        //     lat: centroid.geometry.coordinates[1],
-        //   })
-        // }
+        }
+      } else {
+        console.error("transit schedule from xml is undefined.")
       }
-      // console.log({ centroids: this.centroids })
-      // for (const c of this.centroids) console.log(`${c.id},${c.lon},${c.lat}`)
+
     },
 
-    async setMapCenter() {
+    setMapCenter() {
       // If user gave us the center, use it
       if (this.vizDetails.center) {
         if (typeof this.vizDetails.center == 'string') {
@@ -649,6 +638,8 @@ const MyComponent = defineComponent({
     async configureData(datasetInfo: any) {
       // Use config columns for origin/dest/flow -- if they exist
       this.vizDetails.colorScheme = datasetInfo.colorScheme
+      this.vizDetails.selectedMetricLabel = datasetInfo.flow
+
       const oColumn = datasetInfo.origin || 'origin'
       const dColumn = datasetInfo.destination || 'destination'
       const flowColumn = datasetInfo.flow || 'flow'
@@ -671,17 +662,26 @@ const MyComponent = defineComponent({
         const count = data[flowColumn].values
         const hours = data[hourColumn].values
 
-
-
         const flows = [] as any[]
         for (let i = 0; i < origin.length; i++) {
+          //
           try {
-            flows.push({
-              o: "pt_" + `${origin[i]}`,
-              d: "pt_" + `${destination[i]}`,
-              v: count[i],
-              h: hours[i]
-            })
+            if (datasetInfo.valueTransform.enum[0] == 'inverse') {
+              flows.push({
+                o: `${origin[i]}`,
+                d: `${destination[i]}`,
+                v: 1 / (count[i]),
+                h: hours[i]
+              })
+            } else {
+              flows.push({
+                o: `${origin[i]}`,
+                d: `${destination[i]}`,
+                v: count[i],
+                h: hours[i]
+              })
+            }
+
           } catch {
             // missing data; ignore
           }

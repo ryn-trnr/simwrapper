@@ -12,11 +12,18 @@ import { LineOffsetLayer, OFFSET_DIRECTION } from '@/layers/LineOffsetLayer'
 
 import { MAPBOX_TOKEN, REACT_VIEW_HANDLES } from '@/Globals'
 import globalStore from '@/store'
+import { watch } from 'fs'
 
 export interface PieInfo {
   center: number[]
   radius: number
   slices: { value: number; color: string | number[] }[]
+}
+
+export interface PtLine {
+  name: string
+  a: number
+  b: number
 }
 
 const BASE_URL = import.meta.env.BASE_URL
@@ -119,12 +126,15 @@ export default function Component({
   viewId = 0,
   links = {} as any,
   selectedFeatures = [] as any[],
+  transitLines = [] as any[],
   stopMarkers = [] as any[],
+  checkedTransitLines = [] as any[],
   mapIsIndependent = false,
   projection = 'EPSG:4326',
   handleClickEvent = null as any,
   pieSlider = 20,
   widthSlider = 50,
+  // vizDetails = null as any,
 }) {
   // ------- draw frame begins here -----------------------------
 
@@ -155,17 +165,36 @@ export default function Component({
   }, [links])
 
   // ----------------------------------------------
-  const slices = useMemo(() => {
+  const slices: any[] = useMemo(() => {
+    // if (vizDetails?.demand) return []
+
     // no boarding data? no pies.
-    if (!stopMarkers.length || !('boardings' in stopMarkers[0])) return []
+    if (!stopMarkers.length || stopMarkers[0].boardings == undefined) return []
 
     const fullPies = stopMarkers.map(stop => {
+      let selectedLineStopBoardingsCount = 0
+      let selectedLineStopAlightingsCount = 0
+
+      Object.values(transitLines).forEach(line => {
+        const selectedPtLine = Object.values(stop.ptLines).find(
+          ptLine => (ptLine as PtLine).name === line.id
+        ) as PtLine | undefined
+
+        if (selectedPtLine) {
+          selectedLineStopBoardingsCount += selectedPtLine.b
+          selectedLineStopAlightingsCount += selectedPtLine.a
+        }
+      })
+
       return {
         center: stop.xy,
-        radius: 0.00001 * pieSlider * Math.sqrt(stop.boardings + stop.alightings),
+        radius:
+          0.00002 *
+          pieSlider *
+          Math.sqrt(selectedLineStopBoardingsCount + selectedLineStopAlightingsCount),
         slices: [
-          { label: 'boardings', color: 'gold', value: stop.boardings },
-          { label: 'alightings', color: 'darkmagenta', value: stop.alightings },
+          { label: 'boardings', color: 'gold', value: selectedLineStopBoardingsCount },
+          { label: 'alightings', color: 'darkmagenta', value: selectedLineStopAlightingsCount },
         ],
       }
     })
@@ -273,7 +302,7 @@ export default function Component({
       getColor: (d: any) => d.color,
       getWidth: (d: any) => d.width,
       widthUnits: 'pixels',
-      widthScale: widthSlider / 50,
+      widthScale: widthSlider / 5,
       widthMinPixels: 1.5,
       widthMaxPixels: 50,
       pickable: true,
@@ -310,62 +339,25 @@ export default function Component({
     )
 
   // PIE CHARTS
-  if (slices.length) {
-    layers.push(
-      new SolidPolygonLayer({
-        id: `stop-pie-charts-layer-${Math.random()}`,
-        data: slices,
-        getPolygon: (d: any) => d.polygon,
-        getFillColor: (d: any) => d.color,
-        stroked: false,
-        filled: true,
-        pickable: true,
-        opacity: 1,
-        sizeScale: 1,
-        autoHighlight: false,
-        parameters: { depthTest: false },
-      })
-    )
-  }
+  // if (slices.length) {
+  layers.push(
+    new SolidPolygonLayer({
+      id: `stop-pie-charts-layer-${Math.random()}`,
+      data: slices,
+      getPolygon: (d: any) => d.polygon,
+      getFillColor: (d: any) => d.color,
+      stroked: false,
+      filled: true,
+      pickable: true,
+      opacity: 1,
+      sizeScale: 1,
+      autoHighlight: false,
+      parameters: { depthTest: false },
+    })
+  )
+  // }
 
   // STOP ICONS ----------------
-  // if (stopMarkers.length) {
-  if (false) {
-    // rotate stop arrows to match map rotation
-    const mapBearing = globalStore.state.viewState.bearing
-    const stopsMitBearing = stopMarkers.map(stop => {
-      const relativeBearing = mapBearing - stop.bearing
-      return Object.assign({ ...stop }, { bearing: relativeBearing })
-    })
-
-    layers.push(
-      new IconLayer({
-        id: 'stop-icon-layer',
-        data: stopsMitBearing,
-        getPosition: (d: any) => d.xy,
-        getAngle: (d: any) => d.bearing,
-        getIcon: (d: any) => 'marker',
-        getSize: 6,
-        pickable: false,
-        billboard: true,
-        opacity: 1,
-        sizeScale: 1,
-        autoHighlight: false,
-        parameters: { depthTest: false },
-        iconAtlas: `${BASE_URL}icon-stop-triangle.png`,
-        iconMapping: {
-          marker: {
-            x: 0,
-            y: 0,
-            width: 250,
-            height: 121,
-            anchorX: 125,
-            anchorY: 118,
-          },
-        },
-      })
-    )
-  }
 
   // ############
 

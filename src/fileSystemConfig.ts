@@ -135,7 +135,7 @@ let fileSystems: FileSystemConfig[] = [
     hidden: true,
   },
 
-  // End. Below here, these are editable:
+  // ----------- End. Below here, these are editable: -------------------
 
   {
     name: 'VSP TU-Berlin',
@@ -185,6 +185,14 @@ let fileSystems: FileSystemConfig[] = [
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
     hidden: true,
     example: false,
+  },
+  {
+    name: 'Additional Sample Data',
+    slug: 'sample-data',
+    description: 'Sample data from various cities',
+    thumbnail: 'images/thumb-localfiles.jpg',
+    baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/shared/sample-data',
+    example: true,
   },
   {
     name: 'Localhost:8000',

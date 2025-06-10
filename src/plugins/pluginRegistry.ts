@@ -18,10 +18,12 @@ const plugins = [
     filePatterns: [
       '**/viz-map*.y?(a)ml',
       '**/*.geojson?(.gz)',
-      '**/*network.avro',
+      '**/*network*.avro',
       '**/*network.xml?(.gz)',
       '**/*.shp',
       '**/*.gpkg',
+      '**/*.gmns',
+      '**/*.gmns.zip',
     ],
     component: defineAsyncComponent(() => import('./shape-file/ShapeFile.vue')),
   },
