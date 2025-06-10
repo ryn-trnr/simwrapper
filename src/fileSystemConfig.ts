@@ -207,7 +207,7 @@ let fileSystems: FileSystemConfig[] = [
     slug: 's3',
     description: 'Authenticated access to S3 bucket',
     baseURL: '', // This will be dynamically set below
-    needPassword: true,
+    isAWS: true,
     hidden: false,
   },
 ];

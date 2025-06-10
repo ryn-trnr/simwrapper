@@ -14,6 +14,7 @@ enum FileSystemType {
   FETCH,
   CHROME,
   GITHUB,
+  AWS,
   AZURE,
 }
 
@@ -38,6 +39,7 @@ class HTTPFileSystem {
   private fsHandle: FileSystemAPIHandle | null
   private store: any
   private isGithub: boolean
+  private isAWS: boolean
   private isOMX: boolean
   private type: FileSystemType
 
@@ -48,11 +50,13 @@ class HTTPFileSystem {
     this.fsHandle = project.handle || null
     this.store = store || null
     this.isGithub = !!project.isGithub
+    this.isAWS = !!project.isAWS
     this.isOMX = !!project.omx
 
     this.type = FileSystemType.FETCH
     if (this.fsHandle) this.type = FileSystemType.CHROME
     if (this.isGithub) this.type = FileSystemType.GITHUB
+    if (this.isAWS) this.type = FileSystemType.AWS
     if (this.isOMX) this.type = FileSystemType.AZURE
 
     this.baseUrl = project.baseURL;
@@ -110,6 +114,8 @@ class HTTPFileSystem {
         return this._getFileFromChromeFileSystem(scaryPath)
       case FileSystemType.GITHUB:
         return this._getFileFromGitHub(scaryPath)
+      case FileSystemType.AWS:
+        return this._getFileFetchResponseAWS(scaryPath)
       case FileSystemType.AZURE:
         return this._getFileFromAzure(scaryPath)
       case FileSystemType.FETCH:
@@ -119,10 +125,30 @@ class HTTPFileSystem {
   }
 
   private async _getFileFetchResponse(scaryPath: string): Promise<Response> {
+    const path = this.cleanURL(scaryPath)
+    // console.log(path)
+    const headers: any = {}
+
+    // const credentials = globalStore.state.credentials[this.urlId]
+    // if (this.needsAuth) {
+    //   headers['Authorization'] = `Basic ${credentials}`
+    // }
+
+    const myRequest = new Request(path, { headers })
+    const response = await fetch(myRequest).then(response => {
+      // Check HTTP Response code: 200 is OK, everything else is a problem
+      if (response.status != 200) {
+        console.log('Status:', response.status)
+        throw response
+      }
+      return response
+    })
+    return response
+  }
+
+  private async _getFileFetchResponseAWS(scaryPath: string): Promise<Response> {
     console.log('Raw scaryPath input:', scaryPath);
     const headers: Record<string, string> = {};
-
-    if (this.needsAuth) {
       // Request and receive the message from Amplify containing the username and access token
       const { token, username } = await new Promise<{ token: string; username: string }>(
         (resolve, reject) => {
@@ -168,18 +194,6 @@ class HTTPFileSystem {
       }
 
       return response;
-    } else {
-      // If auth is not needed, use the original path without modification
-      const path = this.cleanURL(scaryPath);
-      const response = await fetch(path, { headers });
-
-      if (!response.ok) {
-        console.log('Status:', response.status);
-        throw response;
-      }
-
-      return response;
-    }
   }
 
   async _getDirectoryFromAzure(stillScaryPath: string): Promise<DirectoryEntry> {
@@ -508,6 +522,9 @@ class HTTPFileSystem {
           break
         case FileSystemType.AZURE:
           dirEntry = await this._getDirectoryFromAzure(stillScaryPath)
+          break
+        case FileSystemType.AWS:
+          dirEntry = await this._getDirectoryFromAWS(stillScaryPath)
           break
         case FileSystemType.FETCH:
         default:
