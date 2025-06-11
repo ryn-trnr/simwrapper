@@ -10,9 +10,9 @@ let webLiveHostname = 'NOPE';
 let websiteLiveHost = 'NOPE';
 
 if (typeof window !== 'undefined') {
-  loc = window.location;
-  webLiveHostname = loc?.hostname;
-  websiteLiveHost = `${loc?.protocol}//${webLiveHostname}`;
+  loc = window.location
+  webLiveHostname = loc?.hostname
+  websiteLiveHost = `${loc?.protocol}//${webLiveHostname}`
 }
 
 // Utility function to fetch the username and token
@@ -43,6 +43,24 @@ async function getS3BaseURL(): Promise<string> {
     console.error('Failed to fetch username:', error);
     // Fallback to a default baseURL or throw an error
     throw new Error('User is not logged in. Please log in to access the S3 bucket.');
+  }
+}
+
+/** Flask filesystems are running the latest Python flask app which
+ * supports OMX file slices!
+ */
+export function addFlaskFilesystems(flaskEntries: { [id: string]: any }) {
+  const roots = Object.keys(flaskEntries)
+  for (const slug of roots) {
+    const params = flaskEntries[slug]
+    const fsconfig: FileSystemConfig = {
+      name: slug,
+      slug,
+      description: params.description,
+      baseURL: window.location.origin, // params.path,
+      omx: true,
+    }
+    fileSystems.unshift(fsconfig)
   }
 }
 
@@ -147,14 +165,13 @@ let fileSystems: FileSystemConfig[] = [
     hidden: true,
   },
   {
-    name: 'Berlin Open Scenario v6.3',
+    name: 'Berlin Open Scenario v7',
     slug: 'open-berlin',
     description: 'Standard dashboard from the MATSim SimWrapper contrib',
     thumbnail: 'images/thumb-localfiles.jpg',
     baseURL:
-      'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v6.3/output/berlin-v6.3-10pct/',
+      'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v7.0/output/berlin-v7.0-10pct/',
     example: true,
-    hidden: false,
   },
   {
     name: 'Visualization Examples',
@@ -187,6 +204,14 @@ let fileSystems: FileSystemConfig[] = [
     example: false,
   },
   {
+    name: 'Visualization Examples',
+    slug: 'examples',
+    description: 'Various SimWrapper data vis types',
+    thumbnail: 'images/thumb-localfiles.jpg',
+    baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/shared/simwrapper',
+    example: true,
+  },
+  {
     name: 'Additional Sample Data',
     slug: 'sample-data',
     description: 'Sample data from various cities',
@@ -207,7 +232,7 @@ let fileSystems: FileSystemConfig[] = [
     slug: 's3',
     description: 'Authenticated access to S3 bucket',
     baseURL: '', // This will be dynamically set below
-    isAWS: true,
+    needPassword: true,
     hidden: false,
   },
 ];

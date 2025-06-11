@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 4.0.0 (2025-06-10)
+
+Bump to version 4.0. New front page, file view, color scheme, event viewer (beta), map builder
+(beta), and updated Python (pip) package for running standalone or in server environments.
+
+
+### Features
+
+* Gridmap Diff Mode ([#468](https://github.com/simwrapper/simwrapper/issues/468)) ([611a825](https://github.com/simwrapper/simwrapper/commit/611a8251a3cd3826b8113b73ba5da19a5bbb9abc))
+
+### [3.7.1](https://github.com/simwrapper/simwrapper/compare/v3.7.0...v3.7.1) (2025-06-11)
+
+
+### Bug Fixes
+
+* **transit:** Transit board/alight pies much more performant and less crashy ([0330ac2](https://github.com/simwrapper/simwrapper/commit/0330ac27f5a6e3d334c3992a12b0e762802f432f))
+
 ## [3.7.0](https://github.com/simwrapper/simwrapper/compare/v3.6.1...v3.7.0) (2025-05-26)
 
 
