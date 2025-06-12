@@ -130,7 +130,7 @@ export default defineComponent({
     go(path: string) {
       this.showSidebarMenu = false
       const fullPath = `${BASE_URL}${path}`.replaceAll('//', '/')
-      this.$router.push(fullPath)
+      this.$router.replace(fullPath)
     },
 
     activate(item: string) {

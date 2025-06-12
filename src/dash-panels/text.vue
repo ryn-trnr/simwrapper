@@ -78,7 +78,7 @@ export default defineComponent({
                   event.preventDefault()
 
                   // goooo
-                  mythis.$router.push(`/split/${base64}`)
+                  mythis.$router.replace(`/split/${base64}`)
                 }
               }
             }

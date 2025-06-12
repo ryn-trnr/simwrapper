@@ -361,7 +361,7 @@ export default defineComponent({
     },
 
     rowClicked(event: any) {
-      this.$router.push(`${this.server.serverNickname}/${event.row.id}`)
+      this.$router.replace(`${this.server.serverNickname}/${event.row.id}`)
       const pagePath = this.$route.params.pathMatch.substring(5).split('/')
       if (pagePath.length > 2) this.runId = pagePath[1] || ''
     },

@@ -169,8 +169,7 @@ let fileSystems: FileSystemConfig[] = [
     slug: 'open-berlin',
     description: 'Standard dashboard from the MATSim SimWrapper contrib',
     thumbnail: 'images/thumb-localfiles.jpg',
-    baseURL:
-      'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v7.0/output/berlin-v7.0-10pct/',
+    baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v7.0/output/berlin-v7.0-10pct/',
     example: true,
   },
   {
@@ -187,8 +186,7 @@ let fileSystems: FileSystemConfig[] = [
     slug: 'reallabhh',
     description: 'Hamburg, Germany',
     description_de: 'Hamburg, Deutschland',
-    baseURL:
-      'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/hamburg/hamburg-v2/hamburg-v2.2/viz',
+    baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/hamburg/hamburg-v2/hamburg-v2.2/viz',
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
     example: true,
     hidden: false,
@@ -197,8 +195,7 @@ let fileSystems: FileSystemConfig[] = [
     name: 'Berlin BENE Project',
     slug: 'bene',
     description: 'widescreen, in German',
-    baseURL:
-      'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/projects/bene/website',
+    baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/projects/bene/website',
     thumbnail: '/simwrapper/images/thumb-localfiles.jpg',
     hidden: true,
     example: false,

@@ -448,7 +448,7 @@ export default defineComponent({
     },
 
     clickedLogo() {
-      this.$router.push('/')
+      this.$router.replace('/')
     },
 
     async findAllConfigsAndDashboards() {
@@ -502,7 +502,7 @@ export default defineComponent({
         const FileSystemDirectoryHandle = window.showDirectoryPicker()
         const dir = await FileSystemDirectoryHandle
         const slug = addLocalFilesystem(dir, null) // no key yet
-        this.$router.push(`${BASE_URL}${slug}/`)
+        this.$router.replace(`${BASE_URL}${slug}/`)
       } catch (e) {
         // shrug
       }
