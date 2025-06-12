@@ -770,7 +770,7 @@ export default defineComponent({
       // multipanel has a base64 murky URL:
       if (this.panels.length > 1 || this.panels[0].length > 1) {
         const base64 = btoa(JSON.stringify(this.panels))
-        this.$router.replace(`${BASE_URL}split/${base64}`)
+        this.$router.push(`${BASE_URL}split/${base64}`)
         return
       }
 
@@ -793,12 +793,12 @@ export default defineComponent({
         this.$router.replace(`${BASE_URL}${root}/${xsubfolder}/${yamlFileWithoutPath}`)
       } else if (yaml) {
         // YAML config specified
-        this.$router.replace(`${BASE_URL}${root}/${xsubfolder}/${yaml}`)
+        this.$router.push(`${BASE_URL}${root}/${xsubfolder}/${yaml}`)
       } else {
         // Just the folder and viz file itself
         let finalUrl = `${BASE_URL}${root}/${xsubfolder}`
         if (props.config) finalUrl += `/${props.config}`
-        this.$router.replace(finalUrl)
+        this.$router.push(finalUrl)
       }
     },
 

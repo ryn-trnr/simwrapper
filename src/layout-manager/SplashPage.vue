@@ -291,7 +291,7 @@ export default defineComponent({
     go(path: string) {
       const fullPath = `${BASE_URL}${path}`.replaceAll('//', '/')
       console.log({ fullPath })
-      this.$router.replace(fullPath)
+      this.$router.push(fullPath)
     },
 
     clickedDeleteFavorite(favorite: FavoriteLocation) {
@@ -371,7 +371,7 @@ export default defineComponent({
         const FileSystemDirectoryHandle = window.showDirectoryPicker()
         const dir = await FileSystemDirectoryHandle
         const slug = addLocalFilesystem(dir, null) // no key yet
-        this.$router.replace(`${BASE_URL}${slug}/`)
+        this.$router.push(`${BASE_URL}${slug}/`)
       } catch (e) {
         // shrug
       }

@@ -224,7 +224,7 @@ export default defineComponent({
         headers: { Authorization: this.server.key, 'Content-Type': 'application/json' },
       }).then(r => r.json())
 
-      this.$router.replace(`../${this.server.serverNickname}`)
+      this.$router.push(`../${this.server.serverNickname}`)
     },
 
     async clickedRunAgain() {
@@ -257,7 +257,7 @@ export default defineComponent({
       }
 
       // Navigate to the new job
-      this.$router.replace(`${jobID}`)
+      this.$router.push(`${jobID}`)
     },
 
     async buildSummaryPage() {

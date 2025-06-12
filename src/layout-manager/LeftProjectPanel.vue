@@ -253,7 +253,7 @@ export default defineComponent({
     },
 
     clickedLogo() {
-      this.$router.replace('/')
+      this.$router.push('/')
     },
   },
 })
