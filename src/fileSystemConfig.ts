@@ -165,11 +165,12 @@ let fileSystems: FileSystemConfig[] = [
     hidden: true,
   },
   {
-    name: 'Berlin Open Scenario v7',
+    name: 'Berlin Open Scenario v6',
     slug: 'open-berlin',
     description: 'Standard dashboard from the MATSim SimWrapper contrib',
     thumbnail: 'images/thumb-localfiles.jpg',
-    baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v7.0/output/berlin-v7.0-10pct/',
+    baseURL:
+      'https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/scenarios/countries/de/berlin/berlin-v6.4/output/berlin-v6.4-10pct/',
     example: true,
   },
   {

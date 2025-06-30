@@ -7,9 +7,11 @@
         .flex1
           img(width=256 src="@/assets/simwrapper-logo/SW_logo_yellow.png")
 
-      .tagline Transport simulation data visualiser
+      .tagline {{ tagline }}
 
   .splash-scroll-area.white-text
+
+    .markdown(v-if="readme" v-html="readme")
 
     //- QUICK START ==================
     h4.az-title(style="margin-top: 1rem;") Quick start tools
@@ -60,7 +62,7 @@
         .az-cell {{ project.description}}
     p
       | Add more cloud data sources from the&nbsp;
-      a(@click="openDataStrip()"): b data
+      a(@click="openDataStrip()"): b data sources
       | &nbsp;tab on the left-side panel.
 
 
@@ -129,7 +131,7 @@
 
         p You don't need to be a coder to use SimWrapper -- you point it at your files and write some small text configuration files to tell SimWrapper what to do. SimWrapper does the rest!
 
-        p If you do know JavaScript, the open-source code and plugin architecture of SimWrapper allows you to fork the project and create your own visualizations, too. But you don't need to know JavaScript if SimWrapper already does what you need.
+        p The open-source code and plugin architecture of SimWrapper allows developers (you!) to fork the project and create your own visualizations, too. But you don't need to be a software developer to use SimWrapper if it already does what you need.
 
         p
           | SimWrapper is a
@@ -145,13 +147,14 @@
         b.section-head.zcaps Funding partners
 
         .links-and-logos
-          .logos: a(v-for="logo in allLogos"
-                    :href="logo.url"
-                    :title="logo.name"
-                    target="_blank"
-                  ): img.img-logo(:src="logo.image")
+          .logos
+            .one-logo(v-for="logo in allLogos" :key="logo.url")
+              a(:href="logo.url"
+                 :title="logo.name"
+                 target="_blank"
+              ): img.img-logo(:src="logo.image")
 
-        p Funded by<br>TU Berlin, the German Bundesministerium für Bildung und Forschung, the Deutsche Forschungsgemeinschaft, and the ActivitySim Consortium member agencies listed above.<br>Thank you for your support!
+        p Funded by TU Berlin; the German Bundesministerium für Bildung und Forschung; the Deutsche Forschungsgemeinschaft; and the ActivitySim Consortium member agencies listed above. Thank you for your support!
 
 
     //- FOOTER -------------------------------------------------------------------
@@ -213,6 +216,7 @@ import FileSystemProjects from '@/components/FileSystemProjects.vue'
 import InfoBottom from '@/assets/info-bottom.md'
 import { FavoriteLocation, FileSystemConfig } from '@/Globals'
 import fileSystems, { addLocalFilesystem } from '@/fileSystemConfig'
+import Markdown from 'markdown-it'
 
 import SCREENSHOT_BERLIN from '@/assets/screenshots/berlin.jpg'
 import SIMWRAPPER_FULL_LOGO from '@/assets/simwrapper-logo/SW_logo_white.png'
@@ -272,7 +276,11 @@ export default defineComponent({
     },
 
     mainRoots(): FileSystemConfig[] {
-      return this.allRoots.filter(f => !!!f.example)
+      let roots = this.allRoots.filter(f => !!!f.example)
+      // if we have a flask system, remove the standard VSP public root
+      if (this.state.flaskConfig.storage) return roots.filter(f => f.slug !== 'public')
+
+      return roots
     },
 
     isChrome() {
@@ -285,6 +293,18 @@ export default defineComponent({
         // parseInt(a.key.substring(2)) < parseInt(b.key.substring(2)) ? -1 : 1
         a.handle.name < b.handle.name ? -1 : 1
       )
+    },
+    readme() {
+      const text = this.state.flaskConfig.readme
+      if (!text) return ''
+      try {
+        return new Markdown({ html: true, linkify: true, typographer: true }).render(text)
+      } catch {
+        return ''
+      }
+    },
+    tagline() {
+      return this.state.flaskConfig.tagline || 'Transport simulation data visualizer'
     },
   },
   methods: {
@@ -519,24 +539,15 @@ h4 {
   flex-direction: row;
   // color: #227;
   // background-color: white;
-  max-width: 60rem;
 }
 .logos {
   display: grid;
   gap: 3rem;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 2rem 0rem;
-
   a {
     margin: 0 auto;
   }
-}
-
-h2.splash-readme {
-  padding: 1rem 1rem 0 1rem;
-  font-size: 1.5rem;
-  font-weight: normal;
-  line-height: 1.8rem;
 }
 
 .funding {
@@ -559,7 +570,7 @@ h2.splash-readme {
 }
 
 .img-logo {
-  height: 5rem;
+  height: 4.5rem;
   object-fit: contain;
 }
 
@@ -721,6 +732,11 @@ h2.splash-readme {
   margin-top: -2rem;
   height: 3.5rem;
   background-color: #162025;
+}
+
+.markdown {
+  border-bottom: 1px solid #88888860;
+  padding-bottom: 1rem;
 }
 
 @media only screen and (max-width: 640px) {

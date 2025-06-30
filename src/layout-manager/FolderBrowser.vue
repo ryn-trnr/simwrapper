@@ -13,7 +13,7 @@
     //- these are sections defined by viz-summary.yml etc
     .curated-sections(:id="idFolderTable")
 
-      h2 {{ xsubfolder || root }}
+      h2 {{ xsubfolder || cwd || root }}
 
       //- FOLDERS: file system folders
       .folder-area(v-if="myState.folders.length")
@@ -26,11 +26,8 @@
                     @click="openOutputFolder(folder)")
               .is-favorite(v-if="isFavorite(folder)")
               p
-                i.fa(
-                  :class="i == 0 ? 'fa-arrow-up' : 'fa-folder'"
-                  :style="i == 0 ? 'color: green' : 'color: #ea0'"
-                )
-                | &nbsp;&nbsp;{{ cleanName(folder) }}
+                i.fa(:class="i == 0 ? 'fa-arrow-up' : 'fa-folder'" :style="i == 0 ? 'color: green' : 'color: #ea0'")
+                span(:style="isFavorite(folder) && 'font-weight: bold'") &nbsp;&nbsp;{{ cleanName(folder) }}
 
       //- README: content of readme.md, if it exists
       .readme-header.markdown(v-if="myState.readme")
@@ -220,6 +217,10 @@ export default defineComponent({
     }
   },
   computed: {
+    cwd() {
+      return this.$route.query.cwd || ''
+    },
+
     favoriteLocations(): string[] {
       const faves = this.$store.state.favoriteLocations.filter((fave: FavoriteLocation) => {
         if (fave.root !== this.root) return false
