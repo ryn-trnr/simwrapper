@@ -348,9 +348,9 @@ export default defineComponent({
       if (pathMatch.startsWith('/')) pathMatch = pathMatch.slice(1);
 
       // Handle S3 bucket paths
-      if (pathMatch.startsWith('s3')) {
+      if (pathMatch.startsWith('Scenarios')) {
         const s3Projects: FileSystemConfig[] = this.$store.state.svnProjects.filter(
-          (a: any) => a.slug === 's3' // Filter by the S3 slug
+          (a: any) => a.slug === 'Scenarios' // Filter by the S3 storage slug
         );
         if (!s3Projects.length) throw Error('no such S3 project');
         const fileSystem = s3Projects[0];
@@ -366,7 +366,7 @@ export default defineComponent({
               key: Math.random(),
               title: fileSystem.name,
               component: 'TabbedDashboardView',
-              props: { root: 's3', xsubfolder: subfolder } as any,
+              props: { root: 'Scenarios', xsubfolder: subfolder } as any,
             },
           ],
         ];

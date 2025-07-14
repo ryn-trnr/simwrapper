@@ -226,9 +226,9 @@ let fileSystems: FileSystemConfig[] = [
     hidden: true,
   },
   {
-    name: 'Uploaded Scenarios',
-    slug: 's3',
-    description: 'Authenticated access to S3 bucket',
+    name: 'Bendigo Cycling Scenarios',
+    slug: 'Scenarios',
+    description: 'Authenticated access to scenario storage hosted on Amazon Web Services S3',
     baseURL: '', // This will be dynamically set below
     isAWS: true,
     hidden: false,
@@ -239,7 +239,7 @@ let fileSystems: FileSystemConfig[] = [
 (async () => {
   try {
     const s3BaseURL = await getS3BaseURL();
-    const s3Config = fileSystems.find(fs => fs.slug === 's3');
+    const s3Config = fileSystems.find(fs => fs.slug === 'Scenarios');
     if (s3Config) {
       s3Config.baseURL = s3BaseURL;
     }
