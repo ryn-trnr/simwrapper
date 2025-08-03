@@ -215,12 +215,12 @@ export default defineComponent({
 <style scoped lang="scss">
 @import '@/styles.scss';
 
-$appTag: #32926f;
+$appTag: #0e113a;
 
 .my-navbar {
   user-select: none;
   gap: 1rem;
-  background-image: linear-gradient(30deg, #425bda, #246a4f); // #801bec
+  background-image: linear-gradient(30deg, #171c60, #171c60);
   color: white;
   position: relative;
 }

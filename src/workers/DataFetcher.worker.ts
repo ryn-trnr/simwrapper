@@ -16,10 +16,21 @@ let _dataset = ''
 let _buffer: Uint8Array
 let _highPrecision = false
 let _comments = [] as any
+// Store AWS auth tokens at module level
+let _authToken = '';
+let _username = '';
 
 const _fileData: { [key: string]: DataTable } = {}
 
 onmessage = function (e) {
+  // Handle auth initialization first
+  if (e.data.authToken) {
+    _authToken = e.data.authToken;
+    _username = e.data.username;
+    return;
+  }
+  
+  // Then handle normal data fetching
   fetchData(e.data)
 }
 
@@ -52,7 +63,10 @@ async function fetchData(props: {
   }
 
   // Got details, need to fetch and then parse
-  _fileSystem = new HTTPFileSystem(props.fileSystemConfig)
+  _fileSystem = new HTTPFileSystem({
+    ...props.fileSystemConfig,
+    authToken: _authToken
+  });
   _subfolder = props.subfolder
   _files = props.files
   _buffer = props.buffer
@@ -390,15 +404,14 @@ function badparseCsvFile(fileKey: string, filename: string, text: string) {
 }
 
 async function loadFileOrGzipFile(filename: string) {
-  const filepath = `${_subfolder}/${filename}`
-
-  // fetch the file
-  const blob = await _fileSystem.getFileBlob(filepath)
-  if (!blob) throw Error('BLOB IS NULL')
-  const buffer = await blob.arrayBuffer()
-
-  // recursively gunzip until it can gunzip no more:
-  const unzipped = await gUnzip(buffer)
-
-  return unzipped
+  const filepath = `${_subfolder}/${filename}`.replace(/\/+/g, '/');
+  
+  // Get blob with auth headers (retry 3 times by default)
+  const blob = await _fileSystem.getFileBlob(filepath, 3, {
+    ...(_authToken ? { 'Authorization': `Bearer ${_authToken}` } : {})
+  });
+  
+  if (!blob) throw Error('BLOB IS NULL');
+  const buffer = await blob.arrayBuffer();
+  return gUnzip(buffer);
 }

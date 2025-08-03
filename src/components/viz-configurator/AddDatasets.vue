@@ -55,6 +55,9 @@
 import { defineComponent } from 'vue'
 import type { PropType } from 'vue'
 
+// To pass AWS tokens to DataFetcherWorker upon initialization
+import { getAuthTokenAndUsername } from '@/fileSystemConfig'
+
 import { gUnzip } from '@/js/util'
 import { VizLayerConfiguration, FileSystemConfig, DataTable } from '@/Globals'
 import FileSelector from './FileSelector.vue'
@@ -158,26 +161,51 @@ export default defineComponent({
     },
 
     async processBuffer(name: string, buffer: ArrayBuffer) {
-      return new Promise<DataTable>((resolve, reject) => {
-        const thread = new DataFetcherWorker()
+      return new Promise<DataTable>(async (resolve, reject) => {
         try {
-          thread.postMessage(
-            {
-              config: { dataset: name },
-              buffer,
-            },
-            [buffer]
-          )
+          // First get the auth tokens
+          const { token, username } = await getAuthTokenAndUsername();
 
-          thread.onmessage = e => {
-            thread.terminate()
-            resolve(e.data)
+          const thread = new DataFetcherWorker();
+
+          try {
+            thread.postMessage(
+              {
+                authToken: token,
+                username: username,
+                config: { dataset: name },
+                buffer,
+              },
+              [buffer]
+            );
+
+            thread.onmessage = e => {
+              if (e.data.error) {
+                thread.terminate();
+                reject(new Error(e.data.error));
+                return;
+              }
+              thread.terminate();
+              resolve(e.data);
+            };
+
+            thread.onerror = (error) => {
+              thread.terminate();
+              reject(error);
+            };
+          } catch (err) {
+            thread.terminate();
+            reject(err instanceof Error ? err : new Error(String(err)));
           }
-        } catch (err) {
-          thread.terminate()
-          reject(err)
+        } catch (authError) {
+          // Type-safe error handling
+          if (authError instanceof Error) {
+            reject(new Error(`Failed to get auth tokens: ${authError.message}`));
+          } else {
+            reject(new Error('Failed to get auth tokens: Unknown error'));
+          }
         }
-      })
+      });
     },
 
     async loadDataUrl(file: any) {
@@ -194,26 +222,63 @@ export default defineComponent({
     },
 
     async fetchDataset(dataset: string) {
-      return new Promise<DataTable>((resolve, reject) => {
-        const thread = new DataFetcherWorker()
+      return new Promise<DataTable>(async (resolve, reject) => {
         try {
-          thread.postMessage({
-            fileSystemConfig: this.fileSystem,
-            subfolder: this.subfolder,
-            files: this.filesInFolder,
-            config: { dataset },
-          })
+          // First get the auth tokens
+          const { token, username } = await getAuthTokenAndUsername();
+          
+          const thread = new DataFetcherWorker();
+          
+          try {
+            // Send auth info first
+            thread.postMessage({
+              authToken: token,
+              username: username,
+              isInitialization: true
+            });
 
-          thread.onmessage = e => {
-            thread.terminate()
-            resolve(e.data)
+            // Then send the data request
+            thread.postMessage({
+              fileSystemConfig: {
+                ...this.fileSystem,
+                // Ensure baseURL is set with username if needed
+                baseURL: this.fileSystem.isAWS 
+                  ? `https://d3o15hrk68p27o.cloudfront.net/user-scenarios/${username}`
+                  : this.fileSystem.baseURL
+              },
+              subfolder: this.subfolder,
+              files: this.filesInFolder,
+              config: { dataset },
+            });
+
+            thread.onmessage = e => {
+              // Handle potential auth errors from worker
+              if (e.data?.error?.includes('auth')) {
+                thread.terminate();
+                reject(new Error('Authentication failed'));
+                return;
+              }
+              thread.terminate();
+              resolve(e.data);
+            };
+
+            thread.onerror = (error) => {
+              thread.terminate();
+              reject(error instanceof Error ? error : new Error(String(error)));
+            };
+          } catch (err) {
+            thread.terminate();
+            reject(err instanceof Error ? err : new Error(String(err)));
           }
-        } catch (err) {
-          thread.terminate()
-          reject(err)
+        } catch (authError) {
+          reject(
+            authError instanceof Error 
+              ? new Error(`Failed to get auth tokens: ${authError.message}`)
+              : new Error('Failed to get auth tokens: Unknown error')
+          );
         }
-      })
-    },
+      });
+    }
   },
 })
 </script>

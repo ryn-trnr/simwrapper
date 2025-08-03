@@ -19,6 +19,9 @@ import { DataTable, DataTableColumn, DataType, FileSystemConfig, Status } from '
 import { findMatchingGlobInFiles } from '@/js/util'
 import avro from '@/js/avro'
 
+// To pass AWS tokens to DataFetcherWorker upon initialization
+import { getAuthTokenAndUsername } from '../fileSystemConfig'
+
 import DataFetcherWorker from '@/workers/DataFetcher.worker.ts?worker'
 import RoadNetworkLoader from '@/workers/RoadNetworkLoader.worker.ts?worker'
 import Coords from './Coords'
@@ -237,43 +240,80 @@ export default class DashboardDataManager {
    * @param fullpath name of shape/geo file
    * @param featureProperties array of feature PROPERTIES -- feature objects MAPPED to just be the props
    */
-  public setFeatureProperties(fullpath: string, featureProperties: any[], config: any) {
-    const namePart = fullpath.substring(fullpath.lastIndexOf('/') + 1)
-    const key = `${config?.subfolder || ''}/${namePart}`
+  public async setFeatureProperties(fullpath: string, featureProperties: any[], config: any) {
+    const namePart = fullpath.substring(fullpath.lastIndexOf('/') + 1);
+    const key = `${config?.subfolder || ''}/${namePart}`;
 
     // merge key with keep/drop params (etc)
-    let fullConfig = { dataset: key }
-    if ('string' !== typeof config) fullConfig = Object.assign(fullConfig, config)
+    let fullConfig = { dataset: key };
+    if ('string' !== typeof config) fullConfig = Object.assign(fullConfig, config);
 
-    this.datasets[key] = {
-      activeFilters: {},
-      filteredRows: null,
-      filterListeners: new Set(),
-      dataset: new Promise<DataTable>((resolve, reject) => {
-        const thread = new DataFetcherWorker()
-        // console.log('NEW WORKER', thread)
-        this.threads.push(thread)
+    try {
+        // First get the auth tokens
+        const { token, username } = await getAuthTokenAndUsername();
 
-        try {
-          thread.postMessage({ config: fullConfig, featureProperties })
+        this.datasets[key] = {
+            activeFilters: {},
+            filteredRows: null,
+            filterListeners: new Set(),
+            dataset: new Promise<DataTable>(async (resolve, reject) => {
+                const thread = new DataFetcherWorker();
+                this.threads.push(thread);
 
-          thread.onmessage = e => {
-            thread.terminate()
-            if (e.data.error) {
-              console.error(e.data.error)
-              reject(`Problem loading properties in ${fullpath}`)
-            }
-            resolve(e.data)
-          }
-        } catch (err) {
-          thread.terminate()
-          console.error(err)
-          reject(err)
-        }
-      }),
+                try {
+                    // First send auth initialization
+                    thread.postMessage({
+                        authToken: token,
+                        username: username,
+                        isInitialization: true
+                    });
+
+                    // Then send the feature properties data
+                    thread.postMessage({ 
+                        config: fullConfig, 
+                        featureProperties,
+                        // Include auth context if needed for further processing
+                        authContext: {
+                            token,
+                            username
+                        }
+                    });
+
+                    thread.onmessage = e => {
+                        thread.terminate();
+                        if (e.data.error) {
+                            console.error(e.data.error);
+                            // Enhanced error message with auth context if relevant
+                            const errorMsg = e.data.error.includes('auth') ? 
+                                `Authentication error processing ${fullpath}` :
+                                `Problem loading properties in ${fullpath}`;
+                            reject(new Error(errorMsg));
+                            return;
+                        }
+                        resolve(e.data);
+                    };
+
+                    thread.onerror = (error) => {
+                        thread.terminate();
+                        reject(error instanceof Error ? error : new Error(String(error)));
+                    };
+
+                } catch (err) {
+                    thread.terminate();
+                    reject(err instanceof Error ? err : new Error(String(err)));
+                }
+            }),
+        };
+        
+        return this.datasets[key].dataset;
+
+    } catch (authError) {
+        return Promise.reject(
+            authError instanceof Error ?
+                new Error(`Authentication failed: ${authError.message}`) :
+                new Error('Authentication failed')
+        );
     }
-    // this is a promise:
-    return this.datasets[key].dataset
   }
 
   /**
@@ -570,42 +610,87 @@ export default class DashboardDataManager {
     config: { dataset: string },
     options?: { highPrecision?: boolean; subfolder?: string }
   ) {
-    // sometimes we are dealing with subfolder/subtabs, so always fetch file list anew.
-    const { files } = await new HTTPFileSystem(this.fileApi).getDirectory(
-      options?.subfolder || this.subfolder
-    )
+    try {
+      // First get the auth tokens
+      const { token, username } = await getAuthTokenAndUsername();
 
-    return new Promise<DataTable>((resolve, reject) => {
-      const thread = new DataFetcherWorker()
-      this.threads.push(thread)
-      // console.log('NEW WORKER', thread)
-      try {
-        thread.postMessage({
-          fileSystemConfig: this.fileApi,
-          subfolder: options?.subfolder || this.subfolder,
-          files,
-          config: config,
-          options,
-        })
+      // Get directory listing with auth
+      const fileSystem = new HTTPFileSystem({
+        ...this.fileApi,
+        // Update baseURL if this is an AWS request
+        baseURL: this.fileApi.isAWS
+          ? `https://d3o15hrk68p27o.cloudfront.net/user-scenarios/${username}`
+          : this.fileApi.baseURL
+      });
+      
+      const { files } = await fileSystem.getDirectory(
+        options?.subfolder || this.subfolder
+      );
 
-        thread.onmessage = e => {
-          thread.terminate()
-          if (!e.data || e.data.error) {
-            let msg = '' + (e.data?.error || 'Error loading file')
-            msg = msg.replace('[object Response]', 'Error loading file')
+      return new Promise<DataTable>(async (resolve, reject) => {
+        const thread = new DataFetcherWorker();
+        this.threads.push(thread);
 
-            if (config?.dataset && msg.indexOf(config.dataset) === -1) msg += `: ${config.dataset}`
+        try {
+          // First send auth initialization
+          thread.postMessage({
+            authToken: token,
+            username: username,
+            isInitialization: true
+          });
 
-            reject(msg)
-          }
-          resolve(e.data)
+          // Then send the data request
+          thread.postMessage({
+            fileSystemConfig: {
+              ...this.fileApi,
+              baseURL: this.fileApi.isAWS
+                ? `https://d3o15hrk68p27o.cloudfront.net/user-scenarios/${username}`
+                : this.fileApi.baseURL
+            },
+            subfolder: options?.subfolder || this.subfolder,
+            files,
+            config: config,
+            options,
+          });
+
+          thread.onmessage = e => {
+            thread.terminate();
+            if (!e.data || e.data.error) {
+              let msg = '' + (e.data?.error || 'Error loading file');
+              msg = msg.replace('[object Response]', 'Error loading file');
+
+              // Handle auth-specific errors
+              if (msg.toLowerCase().includes('auth') || msg.toLowerCase().includes('401')) {
+                msg = 'Authentication failed. Please refresh the page.';
+              }
+
+              if (config?.dataset && msg.indexOf(config.dataset) === -1) {
+                msg += `: ${config.dataset}`;
+              }
+
+              reject(new Error(msg));
+              return;
+            }
+            resolve(e.data);
+          };
+
+          thread.onerror = (error) => {
+            thread.terminate();
+            reject(error instanceof Error ? error : new Error(String(error)));
+          };
+
+        } catch (err) {
+          thread.terminate();
+          reject(err instanceof Error ? err : new Error(String(err)));
         }
-      } catch (err) {
-        thread.terminate()
-        console.error(err)
-        reject(err)
-      }
-    })
+      });
+    } catch (authError) {
+      return Promise.reject(
+        authError instanceof Error
+          ? new Error(`Authentication failed: ${authError.message}`)
+          : new Error('Authentication failed')
+      );
+    }
   }
 
   private async _getAvroNetwork(props: {

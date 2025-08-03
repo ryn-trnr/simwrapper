@@ -46,6 +46,9 @@ import type { PropType } from 'vue'
 import * as shapefile from 'shapefile'
 import reproject from 'reproject'
 
+// To pass AWS tokens to DataFetcherWorker upon initialization
+import { getAuthTokenAndUsername } from '@/fileSystemConfig'
+
 import { gUnzip } from '@/js/util'
 import GMNS from '@simwrapper/gmns'
 import HTTPFileSystem from '@/js/HTTPFileSystem'
@@ -92,26 +95,65 @@ export default defineComponent({
 
   methods: {
     async processBuffer(name: string, buffer: ArrayBuffer) {
-      return new Promise<DataTable>((resolve, reject) => {
-        const thread = new DataFetcherWorker()
+      return new Promise<DataTable>(async (resolve, reject) => {
         try {
-          thread.postMessage(
-            {
-              config: { dataset: name },
-              buffer,
-            },
-            [buffer]
-          )
+          // First get the auth tokens
+          const { token, username } = await getAuthTokenAndUsername();
+          
+          const thread = new DataFetcherWorker();
+          
+          try {
+            // Send auth initialization first
+            thread.postMessage({
+              authToken: token,
+              username: username,
+              isInitialization: true
+            });
 
-          thread.onmessage = e => {
-            thread.terminate()
-            resolve(e.data)
+            // Then send the buffer with transfer
+            thread.postMessage(
+              {
+                config: { dataset: name },
+                buffer,
+                // Include auth context if needed for processing
+                authContext: {
+                  token,
+                  username
+                }
+              },
+              [buffer] // Transfer buffer ownership
+            );
+
+            thread.onmessage = e => {
+              thread.terminate();
+              if (e.data?.error) {
+                // Handle auth-specific errors
+                const errorMsg = e.data.error.includes('auth') 
+                  ? 'Authentication failed during buffer processing'
+                  : e.data.error;
+                reject(new Error(errorMsg));
+                return;
+              }
+              resolve(e.data);
+            };
+
+            thread.onerror = (error) => {
+              thread.terminate();
+              reject(error instanceof Error ? error : new Error(String(error)));
+            };
+
+          } catch (err) {
+            thread.terminate();
+            reject(err instanceof Error ? err : new Error(String(err)));
           }
-        } catch (err) {
-          thread.terminate()
-          reject(err)
+        } catch (authError) {
+          reject(
+            authError instanceof Error
+              ? new Error(`Failed to authenticate: ${authError.message}`)
+              : new Error('Authentication failed')
+          );
         }
-      })
+      });
     },
 
     async loadDataUrl(file: any) {

@@ -160,6 +160,7 @@ export interface FileSystemConfig {
   isGithub?: boolean
   isAWS?: boolean
   omx?: boolean // supports OMX open matrix API - see https://github.com/simwrapper/omx-server
+  authToken?: string
 }
 
 export interface VisualizationPlugin {

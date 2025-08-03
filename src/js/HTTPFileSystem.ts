@@ -43,6 +43,7 @@ class HTTPFileSystem {
   private isAWS: boolean
   private isOMX: boolean
   private type: FileSystemType
+  private authToken: string
 
   constructor(project: FileSystemConfig, store?: any) {
     this.urlId = project.slug
@@ -53,6 +54,7 @@ class HTTPFileSystem {
     this.isGithub = !!project.isGithub
     this.isAWS = !!project.isAWS
     this.isOMX = !!project.omx
+    this.authToken = project.authToken || ''
 
     this.type = FileSystemType.FETCH
     if (this.fsHandle) this.type = FileSystemType.CHROME
@@ -109,19 +111,28 @@ class HTTPFileSystem {
     return path;
   }
 
-  private async _getFileResponse(scaryPath: string): Promise<Response> {
+  private async _getFileResponse(scaryPath: string, additionalHeaders: Record<string, string> = {}): Promise<Response> {
+    // Normalize path first
+    scaryPath = scaryPath.replace(/^\/+|\/+$/g, '');
+
+    // Prepare headers (include auth if available)
+    const headers: Record<string, string> = {
+        ...(this.authToken ? { 'Authorization': `Bearer ${this.authToken}` } : {}),
+        ...additionalHeaders
+    };
+
     switch (this.type) {
-      case FileSystemType.CHROME:
-        return this._getFileFromChromeFileSystem(scaryPath)
-      case FileSystemType.GITHUB:
-        return this._getFileFromGitHub(scaryPath)
-      case FileSystemType.AWS:
-        return this._getFileFetchResponseAWS(scaryPath)
-      case FileSystemType.AZURE:
-        return this._getFileFromAzure(scaryPath)
-      case FileSystemType.FETCH:
-      default:
-        return this._getFileFetchResponse(scaryPath)
+        case FileSystemType.CHROME:
+            return this._getFileFromChromeFileSystem(scaryPath);
+        case FileSystemType.GITHUB:
+            return this._getFileFromGitHub(scaryPath);
+        case FileSystemType.AWS:
+            return this._getFileFetchResponseAWS(scaryPath, headers);
+        case FileSystemType.AZURE:
+            return this._getFileFromAzure(scaryPath);
+        case FileSystemType.FETCH:
+        default:
+            return this._getFileFetchResponse(scaryPath);
     }
   }
 
@@ -147,54 +158,86 @@ class HTTPFileSystem {
     return response
   }
 
-  private async _getFileFetchResponseAWS(scaryPath: string): Promise<Response> {
-    console.log('Raw scaryPath input:', scaryPath);
-    const headers: Record<string, string> = {};
-      // Request and receive the message from Amplify containing the username and access token
-      const { token, username } = await new Promise<{ token: string; username: string }>(
-        (resolve, reject) => {
-          const handleMessage = (event: MessageEvent) => {
-            if (event.data.accessToken && event.data.username) {
-              resolve({
-                token: event.data.accessToken,
-                username: event.data.username,
-              });
-            } else {
-              reject(new Error('No token or username received from parent.'));
-            }
-          };
-
-          window.parent.postMessage('requestAuthToken', '*');
-          window.addEventListener('message', handleMessage, { once: true });
-        }
-      );
-
-      if (!token || !username) {
-        throw new Error('No authentication token or username found. Please log in.');
-      }
-
-      // Use the token for AWS requests
-      headers['Authorization'] = `Bearer ${token}`;
-
-      // Normalize path - remove leading and trailing slashes
-      scaryPath = scaryPath.replace(/^\/+|\/+$/g, '');
+  private async _getFileFetchResponseAWS(scaryPath: string, headers: Record<string, string> = {}): Promise<Response> {
+      console.log('Raw scaryPath input:', scaryPath);
+      
+      // Normalize path - remove leading and trailing slashes and double slashes
+      scaryPath = scaryPath.replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
 
       // Construct full URL safely without double slashes
       const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
       const fullPath = `${baseUrl}/${scaryPath}`;
 
-      // Make a GET request
-      const response = await fetch(fullPath, {
-        method: 'GET',
-        headers
-      });
+      // Prepare headers - use instance authToken if available, otherwise request new token
+      const requestHeaders: Record<string, string> = { ...headers };
 
-      if (!response.ok) {
-        console.log('Status:', response.status, 'URL:', fullPath);
-        throw response;
+      if (!this.authToken) {
+          try {
+              // Request token from parent window if not already available
+              const { token, username } = await new Promise<{ token: string; username: string }>(
+                  (resolve, reject) => {
+                      const handleMessage = (event: MessageEvent) => {
+                          if (event.data.accessToken && event.data.username) {
+                              resolve({
+                                  token: event.data.accessToken,
+                                  username: event.data.username,
+                              });
+                          } else {
+                              reject(new Error('No token or username received from parent.'));
+                          }
+                      };
+
+                      window.parent.postMessage('requestAuthToken', '*');
+                      window.addEventListener('message', handleMessage, { once: true });
+                  }
+              );
+
+              if (!token || !username) {
+                  throw new Error('No authentication token or username found. Please log in.');
+              }
+
+              // Cache the token for future requests
+              this.authToken = token;
+              requestHeaders['Authorization'] = `Bearer ${token}`;
+          } catch (error) {
+              console.error('Failed to get auth token:', error);
+              throw new Error('Authentication failed. Please refresh the page and try again.');
+          }
+      } else {
+          // Use the cached token
+          requestHeaders['Authorization'] = `Bearer ${this.authToken}`;
       }
 
-      return response;
+      // Make the authenticated request
+      try {
+          const response = await fetch(fullPath, {
+              method: 'GET',
+              headers: requestHeaders
+          });
+
+          if (!response.ok) {
+              console.error('AWS Request Failed:', {
+                  status: response.status,
+                  url: fullPath,
+                  headers: Object.fromEntries(response.headers.entries())
+              });
+              
+              // Clear auth token if request failed due to auth error
+              if (response.status === 401 || response.status === 403) {
+                  this.authToken = '';
+              }
+              
+              throw response;
+          }
+
+          return response;
+      } catch (error) {
+          console.error('AWS Request Error:', {
+              url: fullPath,
+              error: error instanceof Error ? error.message : String(error)
+          });
+          throw error;
+      }
   }
 
   async _getDirectoryFromAzure(stillScaryPath: string): Promise<DirectoryEntry> {
@@ -457,14 +500,14 @@ class HTTPFileSystem {
     return JSON.parse(text);
   }
 
-  async getFileBlob(scaryPath: string, retries = 3): Promise<Blob> {
+  async getFileBlob(scaryPath: string, retries = 3, headers: Record<string, string> = {}): Promise<Blob> {
     try {
-      const response = await this._getFileResponse(scaryPath);
+      const response = await this._getFileResponse(scaryPath, headers);
       return response.blob();
     } catch (error) {
       if (retries > 0 && scaryPath.toLowerCase().endsWith('.shp')) {
         await new Promise(resolve => setTimeout(resolve, 300));
-        return this.getFileBlob(scaryPath, retries - 1);
+        return this.getFileBlob(scaryPath, retries - 1, headers);
       }
       throw error;
     }
