@@ -168,48 +168,12 @@ class HTTPFileSystem {
       const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
       const fullPath = `${baseUrl}/${scaryPath}`;
 
-      // Prepare headers - use instance authToken if available, otherwise request new token
+      // Prepare headers
       const requestHeaders: Record<string, string> = { ...headers };
-
-      if (!this.authToken) {
-          try {
-              // Request token from parent window if not already available
-              const { token, username } = await new Promise<{ token: string; username: string }>(
-                  (resolve, reject) => {
-                      const handleMessage = (event: MessageEvent) => {
-                          if (event.data.accessToken && event.data.username) {
-                              resolve({
-                                  token: event.data.accessToken,
-                                  username: event.data.username,
-                              });
-                          } else {
-                              reject(new Error('No token or username received from parent.'));
-                          }
-                      };
-
-                      window.parent.postMessage('requestAuthToken', '*');
-                      window.addEventListener('message', handleMessage, { once: true });
-                  }
-              );
-
-              if (!token || !username) {
-                  throw new Error('No authentication token or username found. Please log in.');
-              }
-
-              // Cache the token for future requests
-              this.authToken = token;
-              requestHeaders['Authorization'] = `Bearer ${token}`;
-          } catch (error) {
-              console.error('Failed to get auth token:', error);
-              throw new Error('Authentication failed. Please refresh the page and try again.');
-          }
-      } else {
-          // Use the cached token
-          requestHeaders['Authorization'] = `Bearer ${this.authToken}`;
-      }
 
       // Make the authenticated request
       try {
+          requestHeaders['Authorization'] = `Bearer ${this.authToken}`;
           const response = await fetch(fullPath, {
               method: 'GET',
               headers: requestHeaders
