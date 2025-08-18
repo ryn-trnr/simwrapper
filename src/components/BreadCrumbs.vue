@@ -1,18 +1,18 @@
 <template lang="pug">
 .trail(v-if="root")
-  hamburger-menu.top-bar(v-if="(!$store.state.topNavItems && !$store.state.leftNavItems)")
   .x-home
-    p(@click="clickedBreadcrumb({url: '/'})"): b SimWrapper
+    p(@click="clickedBreadcrumb({url: '/'})")
+      i.fa.fa-home
 
   .x-breadcrumbs(v-if="root && isSplitMode")
-    a(v-for="crumb,i in crumbs.slice(1)" :key="crumb.url"
+    a(v-for="crumb,i in crumbs.slice(1)"
+      :key="crumb.url"
       @click="clickedBreadcrumb(crumb)"
-    ) &nbsp;›&nbsp;{{ crumb.label }}
+    ) &nbsp;•&nbsp;{{ crumb.label }}
+
   .x-breadcrumbs(v-if="root && !isSplitMode")
     p(v-for="crumb,i in crumbs.slice(1)" :key="`${crumb.root}${crumb.subfolder}`")
-      a(:href="`${BASE_URL}${crumb.root}/${crumb.subfolder}`") &nbsp;•&nbsp;{{ crumb.label }})
-        b(style="color: #a44; margin: 0 4px;") ›
-        span {{ crumb.label }}
+      a(:href="`#${BASE_URL}${crumb.root}/${crumb.subfolder}`") &nbsp;•&nbsp;{{ crumb.label }}
 
 </template>
 
@@ -21,13 +21,12 @@ import { defineComponent } from 'vue'
 import type { PropType } from 'vue'
 
 import { BreadCrumb, FileSystemConfig } from '@/Globals'
-import HamburgerMenu from '@/layout-manager/HamburgerMenu.vue'
 
 const BASE_URL = import.meta.env.BASE_URL
 
 export default defineComponent({
   name: 'BreadCrumbs',
-  components: { HamburgerMenu },
+  components: {},
 
   data() {
     return {
@@ -126,48 +125,37 @@ export default defineComponent({
 @import '@/styles.scss';
 
 .trail {
-  font-family: FiraSans, Figtree, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 1rem;
   display: flex;
-  color: #ffe07f;
-  font-size: 0.9rem;
   p:hover {
-    color: white;
+    color: var(--linkHover);
     cursor: pointer;
   }
 }
 
-.top-bar {
-  transition: padding 0.2s ease-in-out, max-width 0.3s ease-in-out;
-  z-index: 5;
-}
-
-.top-bar.full-page-app {
-  padding: 0 0;
-  max-width: unset;
-}
-
 .x-home {
   line-height: 1.4rem;
-  margin: 5px 1px 0 0;
+  font-size: 0.8rem;
 }
 
 .x-breadcrumbs {
   flex: 1;
   display: flex;
   flex-flow: row wrap;
-  line-height: 1rem;
+  line-height: 1.2rem;
   max-width: 100%;
-  margin: auto 0;
+  margin-top: 2px;
+
   p {
     width: max-content;
   }
 
-  a {
-    font-weight: 400;
-    color: #65d68f;
+  .cdrumb-link:hover {
+    color: var(--linkHover);
+    cursor: pointer;
   }
-  a:hover {
-    color: #a8ffc8;
-  }
+}
+
+@media only screen and (max-width: 640px) {
 }
 </style>

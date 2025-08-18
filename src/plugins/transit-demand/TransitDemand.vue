@@ -1,5 +1,5 @@
 <template lang="pug">
-  #transit-viz.transit-viz(:class="{'hide-thumbnail': !thumbnail}")
+  .transit-viz(:class="{'hide-thumbnail': !thumbnail}")
 
     //- @mousemove.stop
     .main-layout(v-if="!thumbnail"
@@ -24,7 +24,6 @@
             :widthSlider="widthSlider"
             :transitLines="activeTransitLines"
             :vizDetails="vizDetails"
-            :isAtlantis="isAtlantis"
           )
 
           .width-sliders.flex-row(v-if="transitLines.length" :style="{backgroundColor: isDarkMode ? '#00000099': '#ffffffaa'}")
@@ -37,14 +36,10 @@
 
           zoom-buttons
 
-          .status-corner.flex-col(v-if="loadingText" :style="{'height': networkOptions.length ? '15rem':'5rem'}")
+          .status-corner(v-if="loadingText")
             p {{ loadingText }}
-            b-progress.load-progress(v-if="loadProgress > 0" :value="loadProgress" :rounded="false" type='is-success')
-            .network-options.flex-col(v-if="networkOptions.length")
-              b-button.xbutton.is-small.center(v-for="networkFile of networkOptions" :key="networkFile"
-              expanded
-                @click="selectNetwork(networkFile)"
-              )  {{ networkFile }}
+            b-progress.load-progress(v-if="loadProgress > 0"
+              :value="loadProgress" :rounded="false" type='is-success')
 
       .right-panel-holder(:style="{width: `${legendSectionWidth}px`}")
 
@@ -300,7 +295,7 @@ const MyComponent = defineComponent({
       loadSteps: 0,
       totalLoadSteps: 7,
       searchText: '',
-      isAtlantis: false,
+      //drag
       isDraggingDivider: 0,
       dragStartWidth: 250,
       legendSectionWidth: 275,
@@ -337,7 +332,6 @@ const MyComponent = defineComponent({
       isMapMoving: false,
       isHighlightingLink: false,
       loadingText: 'MATSim Transit Inspector',
-      networkOptions: [] as string[],
       projection: DEFAULT_PROJECTION,
       routesOnLink: [] as RouteDetails[],
       selectedLinkId: '',
@@ -528,14 +522,6 @@ const MyComponent = defineComponent({
   },
 
   methods: {
-    async selectNetwork(filename: string) {
-      console.log(filename)
-      this.vizDetails.network = filename
-      this.networkOptions = []
-      await this.findInputFiles()
-      await this.loadEverything()
-    },
-
     clickedLegend(e: any) {
       console.log('boop!', e)
     },
@@ -714,11 +700,10 @@ const MyComponent = defineComponent({
       }
 
       // Build the config based on folder contents
-      const title = this.myState.yamlConfig
-      // const title = this.myState.yamlConfig.substring(
-      //   0,
-      //   15 + this.myState.yamlConfig.indexOf('transitSchedule')
-      // )
+      const title = this.myState.yamlConfig.substring(
+        0,
+        15 + this.myState.yamlConfig.indexOf('transitSchedule')
+      )
 
       this.vizDetails = {
         transitSchedule: this.myState.yamlConfig,
@@ -752,35 +737,19 @@ const MyComponent = defineComponent({
         if (avroNetworkFiles.length > 1)
           console.warn('MULTIPLE Avro files found - using first of ', avroNetworkFiles)
       }
-      // Try the most obvious network filename first:
-      if (!network && this.myState.yamlConfig.indexOf('transitSchedule') > -1) {
-        network = this.myState.yamlConfig.replaceAll('transitSchedule', 'network')
-      }
 
-      // if the obvious network file doesn't exist, pick from all networks in this folder:
+      // Try the most obvious network filename:
+      if (!network) network = this.myState.yamlConfig.replaceAll('transitSchedule', 'network')
+
+      // if the obvious network file doesn't exist, just grab... the first network file:
       if (files.indexOf(network) == -1) {
-        const allXML = files.filter(f => f.toLocaleLowerCase().match(/(\.xml|\.gz)$/))
-        const allNetworks = [] as string[]
-        await Promise.all(
-          allXML.map(async (f: any) => {
-            const path = `${this.myState.subfolder}/${f}`
-            const t = await this.fileApi.probeXmlFileType(path)
-            if (t === 'network') allNetworks.push(f)
-          })
-        )
-        console.log('all networks', allNetworks)
-        // if there is only ONE network file in this folder, use it
-        if (allNetworks.length == 1) network = allNetworks[0]
+        const allNetworks = files.filter(f => f.endsWith('network.xml.gz'))
+        if (allNetworks.length) network = allNetworks[0]
         else {
-          // give up; ask the user to choose
-          this.loadingText = 'Choose network file:'
+          this.loadingText = 'No road network found.'
           network = ''
-          this.networkOptions = allNetworks
-          return
-          // findInputFiles will get called again when user clicks on an option
         }
       }
-
       // Demand: use them if we are in an output folder (and they exist)
       let demandFiles = [] as string[]
       if (this.myState.yamlConfig.indexOf('output_transitSchedule') > -1) {
@@ -791,7 +760,7 @@ const MyComponent = defineComponent({
           demandFiles = analysisPtFolder.files.filter(f => f.includes('pt_pax_volumes.'))
         } catch (e) {
           // we can skip pax loads if file not found
-          console.log('no transit demand file: pt_pax_volumes')
+          console.warn('error', '' + e)
         }
       }
 
@@ -813,9 +782,29 @@ const MyComponent = defineComponent({
         return networks?.roadXML?.network?.attributes?.attribute['#text']
       }
 
+      // 1. if we have it in storage already, use it
+      const storagePath = `${this.root}/${this.subfolder}`
+      let savedConfig = undefined // localStorage.getItem(storagePath) as any
+
       const goodEPSG = /EPSG:.\d/
 
-      // 1. try to get it from config
+      if (savedConfig) {
+        try {
+          const config = JSON.parse(savedConfig)
+
+          if (goodEPSG.test(config.networkProjection)) {
+            return config.networkProjection
+          } else {
+            savedConfig = {}
+          }
+        } catch (e) {
+          console.error('bad saved config in storage', savedConfig)
+          savedConfig = {}
+          // fail! ok try something else
+        }
+      }
+
+      // 2. try to get it from config
       const { files } = await this.fileApi.getDirectory(this.myState.subfolder)
       const outputConfigs = files.filter(
         f => f.indexOf('.output_config.xml') > -1 || f.indexOf('.output_config_reduced.xml') > -1
@@ -836,6 +825,10 @@ const MyComponent = defineComponent({
 
             const crsValue = crs.$value
 
+            // save it
+            // savedConfig = savedConfig || {}
+            // savedConfig.networkProjection = crsValue
+            // localStorage.setItem(storagePath, JSON.stringify(savedConfig))
             return crsValue
           } catch (e) {
             console.warn('Failed parsing', xmlConfigFileName)
@@ -856,6 +849,7 @@ const MyComponent = defineComponent({
       if (!entry.startsWith('EPSG:')) entry = 'EPSG:' + entry
 
       const networkProjection = entry
+      localStorage.setItem(storagePath, JSON.stringify({ networkProjection }))
       return networkProjection
     },
 
@@ -1075,15 +1069,17 @@ const MyComponent = defineComponent({
 
         const filename = this.vizDetails.network
 
-        const roads = (await this.myDataManager.getRoadNetwork(
-          filename,
-          this.subfolder,
-          this.vizDetails,
-          this.updateStatus
-        )) as any
-
-        this.isAtlantis = !!roads.isAtlantis
-        this.avroNetwork = roads
+        const roads =
+          filename.indexOf('.avro') > -1
+            ? // AVRO networks have a separate reader:
+              this.loadAvroRoadNetwork()
+            : // normal MATSim network
+              this.fetchXML({
+                worker: this._roadFetcher,
+                slug: this.fileSystem.slug,
+                filePath: this.myState.subfolder + '/' + this.vizDetails.network,
+                options: { attributeNamePrefix: '' },
+              })
 
         const transit = this.fetchXML({
           worker: this._transitFetcher,
@@ -1295,19 +1291,14 @@ const MyComponent = defineComponent({
       // because Avro networks are always EPSG:4326 even if original network is not.
       let transitProjection = this.vizDetails.projection
       if (!transitProjection) {
-        try {
-          // see if transit network has its own projection
-          let tCRS = networks?.transitXML?.transitSchedule?.attributes?.attribute
-          // sometimes array, sometimes element.
-          if (!tCRS.length) tCRS = [tCRS]
-          tCRS = tCRS.filter((f: any) => f.name === 'coordinateReferenceSystem')
-          if (tCRS.length) {
-            transitProjection = tCRS[0]['#text']
-          } else {
-            // otherwise use roadnetwork project
-            transitProjection = this.projection
-          }
-        } catch (e) {
+        // see if transit network has its own projection
+        let tCRS = networks?.transitXML?.transitSchedule?.attributes?.attribute
+        // sometimes array, sometimes element.
+        if (!tCRS.length) tCRS = [tCRS]
+        tCRS = tCRS.filter((f: any) => f.name === 'coordinateReferenceSystem')
+        if (tCRS.length) {
+          transitProjection = tCRS[0]['#text']
+        } else {
           // otherwise use roadnetwork project
           transitProjection = this.projection
         }
@@ -1339,7 +1330,7 @@ const MyComponent = defineComponent({
       this._network = network
       this.routeData = routeData
       this._stopFacilities = stopFacilities
-      this.transitLines = Array.isArray(transitLines) ? transitLines : [transitLines]
+      this.transitLines = transitLines
       this._mapExtentXYXY = mapExtent
 
       this._transitHelper.terminate()
@@ -1382,15 +1373,14 @@ const MyComponent = defineComponent({
 
       const longitude = 0.5 * (this._mapExtentXYXY[0] + this._mapExtentXYXY[2])
       const latitude = 0.5 * (this._mapExtentXYXY[1] + this._mapExtentXYXY[3])
+
       const span = Math.abs(this._mapExtentXYXY[0] - this._mapExtentXYXY[2])
-      const zoom = span ? Math.floor(Math.log2(360 / span)) : 9
+      const zoom = Math.floor(Math.log2(360 / span))
 
       this.$store.commit('setMapCamera', {
         longitude,
         latitude,
         zoom,
-        bearing: 0,
-        pitch: 0,
         initial: true,
       })
 
@@ -2121,14 +2111,15 @@ h3 {
   left: 0;
   right: 0;
   z-index: 15;
+  display: flex;
+  flex-direction: column;
   background-color: var(--bgPanel);
-  vertical-align: center;
   padding: 0.5rem 3rem;
   margin: auto auto;
   width: 25rem;
   height: 5rem;
-  max-height: 20rem;
   border: 3px solid #cccccc80;
+  // filter: $filterShadow;
 
   a {
     color: white;
@@ -2298,17 +2289,6 @@ h3 {
 
 .lazy-transit-list {
   background-color: #ffa;
-  overflow-y: auto;
-}
-.xbutton {
-  width: 100%;
-}
-
-.xbutton:hover {
-  background-color: var(--bgSplash);
-}
-.network-options {
-  margin-top: 0.5rem;
   overflow-y: auto;
 }
 </style>

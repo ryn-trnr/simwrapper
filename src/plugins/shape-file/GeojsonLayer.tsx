@@ -42,7 +42,6 @@ export default function Component({
   features = [] as any[],
   mapIsIndependent = false,
   initialView = null,
-  isAtlantis = false,
 }) {
   const [viewState, setViewState] = useState(initialView || globalStore.state.viewState)
   const [screenshotCount, setScreenshot] = useState(screenshot)
@@ -90,7 +89,6 @@ export default function Component({
   }
 
   const isStroked = !!lineColors && lineWidths !== 0
-  const hasBackgroundMap = !isAtlantis
 
   // LINE COLORS ----------------------------------------------------------------------
   let cbLineColor // can be callback OR a plain string in simple mode
@@ -420,10 +418,11 @@ export default function Component({
         }
       }}
     >
-      {hasBackgroundMap && (
-        /* @ts-ignore */
+      {
+        /*
+        // @ts-ignore */
         <StaticMap mapStyle={globalStore.getters.mapStyle} mapboxApiAccessToken={MAPBOX_TOKEN} />
-      )}
+      }
     </DeckGL>
   )
 

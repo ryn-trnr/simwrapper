@@ -26,17 +26,6 @@
         outlined
         :style="isDE") DE
 
-    // gamepad axes
-    .option
-      h5 {{ $t('gamepad') }}
-      b-button.button.is-small.is-white(@click="setGamepad(1)"
-        outlined
-        :style="isNormal") {{ $t('gamepad-normal') }}
-
-      b-button.button.is-small.is-gray(@click="setGamepad(-1)"
-        outlined
-        :style="isInverted") {{ $t('gamepad-inverted') }}
-
     // account / auth ---------------
     //- .option
     //-   h5 {{ $t('authentication') }}
@@ -59,9 +48,6 @@ const i18n = {
       addDataSources: 'Add Data Source',
       authentication: 'Accounts',
       clearToken: 'Logout',
-      gamepad: 'Gamepad',
-      'gamepad-normal': 'Normal',
-      'gamepad-inverted': 'Inverted',
     },
     de: {
       translate: 'Die Übersetzungen sind unvollständig, werden aber immer besser...',
@@ -72,9 +58,6 @@ const i18n = {
       dataSources: 'Datenquellen',
       authentication: 'Accounts',
       clearToken: 'Logout',
-      gamepad: 'Gamepad',
-      'gamepad-normal': 'Normal',
-      'gamepad-inverted': 'Inverted',
     },
   },
 }
@@ -140,34 +123,6 @@ export default defineComponent({
           }
     },
 
-    isNormal(): any {
-      return this.state.gamepad == 1
-        ? {
-            backgroundColor: '#ffdd57',
-            color: '#222',
-            borderColor: '#aaa',
-          }
-        : {
-            backgroundColor: 'unset',
-            color: '#888',
-            borderColor: '#aaa',
-          }
-    },
-
-    isInverted(): any {
-      return this.state.gamepad == -1
-        ? {
-            backgroundColor: '#7957d5',
-            color: 'white',
-            borderColor: '#aaa',
-          }
-        : {
-            backgroundColor: 'unset',
-            color: '#888',
-            borderColor: '#aaa',
-          }
-    },
-
     isEN(): any {
       return this.state.locale == 'en'
         ? {
@@ -200,18 +155,13 @@ export default defineComponent({
     setTheme(theme: string) {
       this.theme = theme
       globalStore.commit('setTheme', theme)
-      setTimeout(() => this.$emit('close'), 700)
+      setTimeout(() => this.$emit('close'), 500)
     },
 
     setLanguage(lang: string) {
       this.$store.commit('setLocale', lang)
       this.$root.$i18n.locale = lang
-      setTimeout(() => this.$emit('close'), 700)
-    },
-
-    setGamepad(value: number) {
-      this.$store.commit('setGamepad', value)
-      setTimeout(() => this.$emit('close'), 700)
+      setTimeout(() => this.$emit('close'), 500)
     },
 
     clearTokens() {

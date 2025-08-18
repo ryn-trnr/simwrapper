@@ -294,15 +294,6 @@ const Component = defineComponent({
     },
   },
   methods: {
-    updateTestData() {
-      //@ts-ignore
-      window.__testdata__ = {
-        centroids: this.centroidSource?.features,
-        spiderLinks: this.spiderLinkFeatureCollection?.features,
-        geojson: this.geojson?.features,
-      }
-    },
-
     setupResizer() {
       this.resizer = new ResizeObserver(() => {
         if (this.mymap) this.mymap.resize()
@@ -354,7 +345,7 @@ const Component = defineComponent({
         }
       }
 
-      this.$emit('title', this.vizDetails)
+      this.$emit('title', this.vizDetails.title)
 
       this.scaleFactor = this.vizDetails.scaleFactor
       this.projection = this.vizDetails.projection
@@ -1149,7 +1140,6 @@ const Component = defineComponent({
       this.setMapExtent()
       this.buildSpiderLinks()
       this.setupKeyListeners()
-      this.updateTestData()
       this.loadingText = ''
     },
 
@@ -1397,8 +1387,6 @@ const Component = defineComponent({
   beforeDestroy() {
     this.resizer?.disconnect()
     if (this.csvWorker) this.csvWorker.terminate()
-    //@ts-ignore
-    delete window.__testdata__
   },
 
   destroyed() {

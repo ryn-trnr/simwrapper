@@ -6,6 +6,7 @@
       .top-banner.flex-row
         .flex1
           img(width=256 src="@/assets/simwrapper-logo/SW_logo_yellow.png")
+
       .tagline {{ tagline }}
 
   .splash-scroll-area.white-text
@@ -24,12 +25,6 @@
       .az-quick-item.flex-col(@click="go('/map')")
         .az-quick-icon: i.fa.fa-plus
         .az-quick-label Map builder<br>(beta)
-      .az-quick-item.flex1.spacer &nbsp;
-
-      settings-panel.settings-popup(v-if="showSettings" @close="showSettings=false")
-      .az-quick-item.flex-col(v-else @click="showSettings = !showSettings")
-        .az-quick-icon: i.fa.fa-cog
-        .az-quick-label Settings
 
 
     //- LOCAL FOLDERS ==================
@@ -215,14 +210,14 @@ const i18n = {
 
 import { defineComponent } from 'vue'
 import { get, set, clear } from 'idb-keyval'
-import Markdown from 'markdown-it'
 
 import globalStore from '@/store'
-import { FavoriteLocation, FileSystemConfig } from '@/Globals'
 import FileSystemProjects from '@/components/FileSystemProjects.vue'
-import fileSystems, { addLocalFilesystem } from '@/fileSystemConfig'
-import SettingsPanel from '@/layout-manager/SettingsPanel.vue'
 import InfoBottom from '@/assets/info-bottom.md'
+import { FavoriteLocation, FileSystemConfig } from '@/Globals'
+import fileSystems, { addLocalFilesystem } from '@/fileSystemConfig'
+import Markdown from 'markdown-it'
+
 import SCREENSHOT_BERLIN from '@/assets/screenshots/berlin.jpg'
 import SIMWRAPPER_FULL_LOGO from '@/assets/simwrapper-logo/SW_logo_white.png'
 
@@ -256,7 +251,7 @@ const logos = [
 export default defineComponent({
   name: 'SplashPage',
   i18n,
-  components: { FileSystemProjects, InfoBottom, SettingsPanel },
+  components: { FileSystemProjects, InfoBottom },
   data: () => {
     return {
       state: globalStore.state,
@@ -267,10 +262,8 @@ export default defineComponent({
       },
       skimwrapper: `${BASE_URL}matrix`,
       git: GIT,
-      showSettings: false,
     }
   },
-
   computed: {
     allLogos(): any[] {
       return logos.map(p => {
@@ -744,17 +737,6 @@ h4 {
 .markdown {
   border-bottom: 1px solid #88888860;
   padding-bottom: 1rem;
-}
-
-.spacer {
-  pointer-events: none;
-}
-
-.settings-popup {
-  float: right;
-  background-color: var(--bgBold);
-  padding: 0.5rem 1rem 0 1rem;
-  border: var(--borderThin);
 }
 
 @media only screen and (max-width: 640px) {

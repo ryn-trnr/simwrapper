@@ -1,5 +1,5 @@
 <template lang="pug">
-.c-xmlviewer.flex-col(:class="{'is-thumbnail': thumbnail}")
+.mycomponent(:class="{'is-thumbnail': thumbnail}")
   b-input.xml-searchbox(
     type="search"
     icon-pack="fas"
@@ -11,7 +11,7 @@
     tree-view.things(v-if="isLoaded"
       :initialData="viewXml"
       :expandAll="isSearch"
-      :level="0"
+      :level="1"
       :numberOfUnfoldLevel="numberOfUnfoldLevel"
     )
 
@@ -98,7 +98,7 @@ const MyComponent = defineComponent({
     this.debounceSearch = debounce(this.handleSearch, 500)
 
     try {
-      this.getVizDetails()
+      await this.getVizDetails()
       // only continue if we are on a real page and not the file browser
       if (this.thumbnail) return
 
@@ -106,7 +106,11 @@ const MyComponent = defineComponent({
 
       //TODO remove '?xml' correctly
       this.fullXml = answer[1]
+
       this.viewXml = this.fullXml
+
+      // this.viewXml = this.recursiveDelete(this.viewXml)
+
       this.isLoaded = true
     } catch (err) {
       const e = err as any
@@ -114,16 +118,16 @@ const MyComponent = defineComponent({
       this.loadingText = '' + e
     }
 
-    this.numberOfUnfoldLevel = this.config?.unfoldLevel ?? 0 + 1
+    this.numberOfUnfoldLevel = this.config.unfoldLevel + 1
   },
 
   methods: {
-    getVizDetails() {
+    async getVizDetails() {
       if (this.config) {
         // config came in from the dashboard and is already parsed
         this.vizDetails = { ...this.config }
         this.vizDetails.file = `/${this.subfolder}/${this.config.file}`
-        this.$emit('titles', this.vizDetails.title || this.vizDetails.file || 'XML')
+        this.$emit('title', this.vizDetails.title || this.vizDetails.file || 'XML')
       } else {
         // Otherwise this is an XML file
         const filename = this.yamlConfig ?? ''
@@ -133,8 +137,8 @@ const MyComponent = defineComponent({
           file: this.subfolder + '/' + filename,
         }
       }
-      // if (!this.vizDetails.title) this.vizDetails.title = 'XML'
-      this.$emit('titles', this.vizDetails.title)
+      if (!this.vizDetails.title) this.vizDetails.title = 'XML'
+      this.$emit('title', this.vizDetails.title)
     },
 
     async fetchXml() {
@@ -148,12 +152,6 @@ const MyComponent = defineComponent({
           this.xmlWorker.terminate()
 
           if (message.data.error) reject(message.data.error)
-          if (message.data.resolvedFilename && !this.vizDetails.title) {
-            const slash = message.data.resolvedFilename.lastIndexOf('/')
-            if (slash > -1)
-              this.$emit('titles', 'XML Config: ' + message.data.resolvedFilename.slice(slash + 1))
-          }
-
           resolve(message.data.xml)
         }
 
@@ -233,6 +231,22 @@ const MyComponent = defineComponent({
       }
       return found
     },
+
+    // recursiveDelete(array: any[]) {
+    //   for (const [k, v] of Object.entries(array)) {
+    //     let data = v as any[]
+    //     if (data.length < 50) {
+    //     } else {
+    //       for (let i = 49; i < data.length; i++) {
+    //         data.splice(50, 1)
+    //       }
+    //     }
+    //     for (let i = 0; i < 50; i++) {
+    //       array = this.recursiveDelete(data)
+    //     }
+    //   }
+    //   return array
+    // },
   },
 })
 
@@ -242,14 +256,18 @@ export default MyComponent
 <style scoped lang="scss">
 @import '@/styles.scss';
 
-.c-xmlviewer {
+.mycomponent {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
   right: 0;
   background-color: var(--bgCardFrame);
-  padding: 0.25rem 0.5rem !important;
+}
+
+.mycomponent.is-thumbnail {
+  padding-top: 0;
+  height: $thumbnailHeight;
 }
 
 .viewer {
@@ -272,13 +290,9 @@ export default MyComponent
 </style>
 
 <style lang="scss">
-.xml-searchbox {
-  margin-bottom: 0.5rem;
-}
-
 .xml-searchbox input {
-  background-color: var(--bgPanel);
+  background-color: var(--bgBold);
   border: 1px solid var(--bgCream3);
-  color: var(--link);
+  color: var(--text);
 }
 </style>

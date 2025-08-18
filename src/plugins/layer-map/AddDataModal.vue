@@ -80,14 +80,12 @@ export default defineComponent({
         'SHP',
         'GeoJSON',
         'GMNS',
-        'XML',
         'ZIP',
       ],
-      validRegex: /\.(CSV|TSV|TAB|TXT|DBF|DAT|GPKG|SHP|GEOJSON|XML|GMNS\.ZIP)(\.GZ)?$/,
+      validRegex: /\.(CSV|TSV|TAB|TXT|DBF|DAT|GPKG|SHP|GEOJSON|GMNS\.ZIP)(\.GZ)?$/,
       fileChoice: '',
       filesInFolder: [] as string[],
       isLoading: false,
-      isAtlantis: false,
     }
   },
 
@@ -207,15 +205,6 @@ export default defineComponent({
           // MATSIM
           const geojson = await this.loadMatsimXML(file, buffer)
           this.$emit('update', { geojson, file })
-          if (this.isAtlantis)
-            this.$store.commit('setMapCamera', {
-              longitude: 0,
-              latitude: 0,
-              center: [0, 0],
-              zoom: 11,
-              bearing: 0,
-              pitch: 0,
-            })
           continue
         } else {
           // otherwise assume CSV
@@ -268,12 +257,6 @@ export default defineComponent({
         const thread = new RoadNetworkWorker()
         try {
           thread.onmessage = e => {
-            if (e.data.promptUserForCRS) {
-              const crs = prompt('Enter EPSG code or press enter to skip', '')
-              thread.postMessage({ crs })
-              if (!crs) this.isAtlantis = true
-              return
-            }
             if (e.data.status) {
               console.log('status: ', '' + e.data.status)
               return
@@ -281,17 +264,16 @@ export default defineComponent({
 
             thread.terminate()
 
-            console.log('GOT YOU', e.data)
+            // console.log('GOT YOU', e.data)
 
             const json = []
             const links = e.data.links
-            const IDs = links?.linkIds || links.id
-            const numLinks = IDs.length
+            const numLinks = links.linkIds.length
             for (let i = 0; i < numLinks; i++) {
               const offset = i * 2
               const feature = {
-                id: IDs[i],
-                properties: { id: IDs[i] },
+                id: links.linkIds[i],
+                properties: { id: links.linkIds[i] },
                 geometry: {
                   type: 'LineString',
                   coordinates: [

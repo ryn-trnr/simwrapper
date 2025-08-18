@@ -6,6 +6,7 @@
       i.fas.fa-columns
       span &nbsp; Split View
 
+
     .trail(v-if="root")
       .x-home
         p(@click="clickedBreadcrumb({url: '//'})")
@@ -272,6 +273,8 @@ export default defineComponent({
       this.myState.vizes = []
       if (this.myState.files.length === 0) return
 
+      this.showReadme()
+
       this.myState.summary = this.myState.files.indexOf(this.summaryYamlFilename) !== -1
 
       if (this.myState.summary) {
@@ -388,6 +391,32 @@ export default defineComponent({
       this.subfolder = subfolder
     },
 
+    activateVisualization(vizNumber: number) {
+      // if this is not a valid viz, just open the file/dashboard browser
+      const viz = this.myState.vizes[vizNumber] || {
+        component: 'TabbedDashboardView',
+        title: 'Dashboard',
+      }
+
+      // special case: images don't click thru
+      if (viz.component === 'image-view') return
+
+      if (!this.myState.svnProject) return
+
+      this.highlightedViz = -2
+
+      const cleanSubfolder = this.myState.subfolder.replaceAll('//', '/')
+      const props = {
+        root: this.myState.svnProject.slug,
+        xsubfolder: cleanSubfolder,
+        subfolder: cleanSubfolder,
+        yamlConfig: viz.config,
+        thumbnail: false,
+      }
+
+      this.$emit('navigate', { component: viz.component, props })
+    },
+
     updateTitle(viz: number, title: string) {
       this.myState.vizes[viz].title = title
     },
@@ -399,6 +428,15 @@ export default defineComponent({
     getTabColor(kebabName: string) {
       const color = tabColors[kebabName] || '#8778BB'
       return { backgroundColor: color }
+    },
+    async showReadme() {
+      this.myState.readme = ''
+      const readme = 'readme.md'
+      if (this.myState.files.map(f => f.toLocaleLowerCase()).indexOf(readme) > -1) {
+        if (!this.myState.svnRoot) return
+        const text = await this.myState.svnRoot.getFileText(this.myState.subfolder + '/' + readme)
+        this.myState.readme = this.mdRenderer.render(text)
+      }
     },
 
     buildShowEverythingView() {
@@ -651,6 +689,7 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding-top: 0.25rem;
   user-select: none;
   font-size: 0.9rem;
   color: #ddd;
@@ -661,21 +700,19 @@ export default defineComponent({
 .top-panel {
   display: flex;
   flex-direction: column;
+  margin: 0.25rem 1rem 1rem 1rem;
 
   h4 {
-    background-color: #060609;
-    color: $colorYellow;
-    text-transform: uppercase;
-    text-align: center;
+    background-color: #116670;
   }
 }
 
 h4 {
   background-color: #00000080;
   text-transform: uppercase;
-  padding: 4px 0.5rem 5px 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.25rem;
   font-weight: bold;
   text-transform: uppercase;
   color: #ddd;
@@ -933,12 +970,10 @@ p.v-plugin {
   display: flex;
   width: 100%;
   font-size: 0.8rem;
-  padding: 0 0.5rem;
   p:hover {
     color: var(--linkHover);
     cursor: pointer;
   }
-  margin-bottom: 1rem;
 }
 
 .x-breadcrumbs {

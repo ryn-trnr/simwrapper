@@ -20,15 +20,6 @@ export const MAP_STYLES_OFFLINE = {
   transparentDark: { version: 8, layers: [], sources: {} },
 }
 
-export const XML_COMPONENTS = {
-  carriers: 'carriers',
-  config: 'xml',
-  events: 'events',
-  lsps: 'logistics',
-  network: 'area-map',
-  transitSchedule: 'transit',
-} as any
-
 export interface NavigationItem {
   text?: string
   text_en?: string

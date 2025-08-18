@@ -13,10 +13,8 @@
   :style="{'userSelect': isDraggingDivider ? 'none' : 'unset'}"
  )
 
+  //-  :class="{'is-hide-me': isLeftPanelHidden}"
   .left-panel(v-show="showLeftBar")
-
-    .left-panel-close-button.btn-times(@click="clickedCloseLeftBar")
-      p: i.fa.fa-times
 
     .left-panel-active-section(
       v-show="isShowingActiveSection"
@@ -43,6 +41,7 @@
     .authorization-strip(v-if="authHandles.length")
       .auth-row(v-for="auth in authHandles")
         p.flex1 {{ '' + auth }}
+        //- b-button hello
 
     .row-drop-target(:style="buildDragHighlightStyle(-1,-1)"
         @drop="onDrop({event: $event, row: 'rowTop'})"
@@ -55,7 +54,6 @@
     .tile-row(v-for="panelRow,y in panels" :key="y"
         v-show="fullScreenPanel.y == -1 || fullScreenPanel.y == y"
     )
-
       .drag-container(
         v-for="panel,x in panelRow" :key="panel.key"
         @drop="onDrop({event: $event,x,y})"
@@ -66,25 +64,12 @@
         :ref="`dragContainer${x}-${y}`"
         :style="getContainerStyle(panel,x,y)"
       )
-        //- only show one settings panel
-        settings-panel.settings-popup(v-if="showSettings && (!x) && (!y)" @close="showSettings=false")
-        .breadcrumb-row(v-if="$store.state.isShowingBreadcrumbs")
-          bread-crumbs.flex1(
-            :root="panel.props.root || ''"
-            :subfolder="panel.props.xsubfolder || panel.props.subfolder || ''"
-            @navigate="onNavigate($event,x,y)"
-          )
-          //- only show cog if we're first/only panel
-          .settings-cog(v-if="panel.component !== 'SplashPage' && (!x) && (!y)" @click="showSettings=!showSettings")
-            button: i.fas.fa-cog
-          .close-split-panel(v-if="isMultipanel" @click="onClose(x,y)")
-            button: i.fas.fa-times
-
-        //- .tile-header.flex-row(v-if="false")
         .tile-header.flex-row(v-if="getShowHeader(panel)")
+
           .tile-buttons(v-if="panel.component !== 'SplashPage'")
-            .nav-button.btn-header-back.is-small(@click="onBack(x,y)")
-              i.fa.fa-arrow-left
+            .nav-button.is-small.is-white(
+              @click="onBack(x,y)"
+            ): i.fa.fa-arrow-left
 
           .tile-labels(:class="{'is-singlepanel': !isMultipanel}")
             h3(v-if="panel.title" :style="{textAlign: 'left'}") {{ panel.title }}
@@ -92,12 +77,14 @@
 
           .flex-row
             .tile-buttons
-              .nav-button.is-small.is-white(v-if="panel.info"
+              .nav-button.is-small.is-white(
+                v-if="panel.info"
                 @click="handleToggleInfoClicked(panel)"
               ): i.fa.fa-info-circle
               //- :title="infoToggle[panel.id] ? 'Hide Info':'Show Info'"
 
-              .nav-button.is-small.is-white(v-if="panels.length > 1 || panels[0].length > 1"
+              .nav-button.is-small.is-white(
+                v-show="panels.length > 1 || panels[0].length > 1"
                 @click="toggleZoom(panel, x, y)"
                 :title="fullScreenPanel.x > -1 ? 'Restore':'Enlarge'"
               ): i.fa.fa-expand
@@ -106,6 +93,13 @@
                 @click="onClose(x,y)"
                 title="Close"
               ): i.fa.fa-times-circle
+
+        .breadcrumb-row(v-if="getShowHeader(panel)")
+          bread-crumbs.bread-crumbs(
+            :root="panel.props.root || ''"
+            :subfolder="panel.props.xsubfolder || ''"
+            @navigate="onNavigate($event,x,y)"
+          )
 
         //- here is the actual component containing the dashboard, viz, etc
         component.map-tile(
@@ -163,15 +157,13 @@ import LeftProjectPanel from './LeftProjectPanel.vue'
 import LeftRunnerPanel from '@/sim-runner/LeftRunnerPanel.vue'
 import LeftSplitFolderPanel from './LeftSplitFolderPanel.vue'
 import LeftSystemPanel from './LeftSystemPanel.vue'
-import SettingsPanel from './SettingsPanel.vue'
 import SimRunner from '@/sim-runner/SimRunner.vue'
 import SplashPage from './SplashPage.vue'
 import TabbedDashboardView from './TabbedDashboardView.vue'
 import ProjectNavBar from './ProjectNavBar.vue'
 
 import ErrorPanel from '@/components/left-panels/ErrorPanel.vue'
-import { FileSystemConfig, XML_COMPONENTS } from '@/Globals'
-import HTTPFileSystem from '@/js/HTTPFileSystem'
+import { FileSystemConfig } from '@/Globals'
 
 export interface Section {
   name: string
@@ -212,7 +204,6 @@ export default defineComponent({
       LeftSplitFolderPanel,
       LeftSystemPanel,
       ProjectNavBar,
-      SettingsPanel,
       SimRunner,
       SplashPage,
       TabbedDashboardView,
@@ -245,8 +236,6 @@ export default defineComponent({
       panels: [] as any[][],
       // scrollbars for dashboards and kebab-case name of any plugins that need them:
       panelsWithScrollbars: ['TabbedDashboardView', 'FolderBrowser', 'calc-table'],
-      prevUrl: 'BOOP~~', // unlikely placeholder
-      showSettings: false,
       zoomed: false,
     }
   },
@@ -272,6 +261,7 @@ export default defineComponent({
 
   watch: {
     '$store.state.activeLeftSection'() {
+      console.log('GOTYOU')
       this.setActiveLeftSection(PANELS[this.$store.state.activeLeftSection])
     },
 
@@ -294,11 +284,6 @@ export default defineComponent({
   },
 
   methods: {
-    clickedCloseLeftBar(item: string) {
-      this.$store.commit('setActiveLeftSection', '')
-      this.$store.commit('setShowLeftBar', false)
-    },
-
     async setActiveLeftSection(section: Section) {
       this.isLeftPanelHidden = !!!section
 
@@ -411,7 +396,6 @@ export default defineComponent({
 
       // split panel?
       if (pathMatch.startsWith('split/')) {
-        // if (!isNavigateNeeded) return
         const payload = pathMatch.substring(6)
         try {
           const content = atob(payload)
@@ -444,14 +428,12 @@ export default defineComponent({
         // be case insensitive for the matching itself
         if (micromatch.isMatch(lowerCaseFileName, vizPlugin.filePatterns)) {
           // plugin matched!
-          // if (!isNavigateNeeded) return
           if (this.panels.length === 1 && this.panels[0].length === 1) {
             this.panels = [[this.panels[0][0]]]
           } else {
             let key = Math.random()
             let subfolder = xsubfolder.substring(0, xsubfolder.lastIndexOf('/'))
             if (subfolder.startsWith('/')) subfolder = subfolder.slice(1)
-            xsubfolder = subfolder
             this.panels = [
               [
                 {
@@ -462,7 +444,6 @@ export default defineComponent({
                   props: {
                     root,
                     subfolder,
-                    xsubfolder,
                     yamlConfig: fileNameWithoutPath,
                     thumbnail: false,
                   } as any,
@@ -470,46 +451,10 @@ export default defineComponent({
               ],
             ]
           }
+
+          // this.$store.commit('setShowLeftBar', false)
           return
         }
-      }
-
-      // XML file?
-      if (lowerCaseFileName.match(/\.(xml|xml\.gz)$/)) {
-        const svnProjects: FileSystemConfig[] = this.$store.state.svnProjects.filter(
-          (a: any) => a.slug === root
-        )
-        if (!svnProjects.length) throw Error('no such project')
-        const fileSystem = svnProjects[0]
-        const fileApi = new HTTPFileSystem(fileSystem, globalStore)
-        let subfolder = xsubfolder.substring(0, xsubfolder.lastIndexOf('/'))
-        if (subfolder.startsWith('/')) subfolder = subfolder.slice(1)
-        xsubfolder = subfolder
-        const probe = `${xsubfolder}/${fileNameWithoutPath}`
-        const answer = await fileApi.probeXmlFileType(probe)
-        if (answer && XML_COMPONENTS[answer]) {
-          // got a real usable XML!
-          // if (!isNavigateNeeded) return
-          // show it
-          let key = Math.random()
-          this.panels = [
-            [
-              {
-                key,
-                component: XML_COMPONENTS[answer],
-                title: '',
-                description: '',
-                props: {
-                  root,
-                  subfolder: xsubfolder,
-                  yamlConfig: fileNameWithoutPath,
-                  thumbnail: false,
-                } as any,
-              },
-            ],
-          ]
-        }
-        return
       }
 
       // Last option: folder browser/dashboard panel
@@ -522,11 +467,11 @@ export default defineComponent({
       )
       if (!svnProjects.length) throw Error('no such project')
       const fileSystem = svnProjects[0]
+
       const folder = xsubfolder.startsWith('/') ? xsubfolder.slice(1) : xsubfolder
+
       const lastFolder = folder.substring(1 + folder.lastIndexOf('/'))
       const title = lastFolder || fileSystem.name
-
-      globalStore.commit('setShowFilesTab', true)
 
       this.panels = [
         [
@@ -724,7 +669,6 @@ export default defineComponent({
     },
 
     onNavigate(newPanel: { component: string; props: any }, x: number, y: number) {
-      this.showSettings = false
       if (newPanel.component === 'SplashPage') {
         this.panels[y][x] = { component: 'SplashPage', props: {}, key: Math.random() }
       } else {
@@ -777,7 +721,7 @@ export default defineComponent({
         panel.component = 'TabbedDashboardView'
         panel.props.xsubfolder = this.panels[y][x].props.subfolder
         delete panel.props.yamlConfig
-        this.updateURL({ showFiles: true })
+        this.updateURL()
         return
       }
 
@@ -811,7 +755,7 @@ export default defineComponent({
       // return true
 
       // some panels don't require header (or provide their own)
-      // if (this.panels.length > 1 || this.panels[0].length > 1) return true
+      if (this.panels.length > 1 || this.panels[0].length > 1) return true
 
       const panelsWithoutHeader = ['SplashPage', 'TabbedDashboardView', 'SimRunner']
       if (panelsWithoutHeader.includes(panel.component)) return false
@@ -819,10 +763,7 @@ export default defineComponent({
       return true
     },
 
-    updateURL(options?: { showFiles: boolean }) {
-      // any navigation, halt the gamepad loop
-      this.$store.dispatch('gamepadStop')
-
+    updateURL() {
       // save the first-most panel URL for highlighting purposes
       this.firstPanelSubfolder = this.panels[0][0]?.props?.xsubfolder || ''
 
@@ -857,8 +798,6 @@ export default defineComponent({
         // Just the folder and viz file itself
         let finalUrl = `${BASE_URL}${root}/${xsubfolder}`
         if (props.config) finalUrl += `/${props.config}`
-        // back to Folder View if we're going back from a single viz
-        if (options?.showFiles) finalUrl += `?tab=files`
         this.$router.push(finalUrl)
       }
     },
@@ -926,21 +865,10 @@ export default defineComponent({
     },
 
     getTileStyle(panel: any) {
-      const isDark = globalStore.state.isDarkMode
-      const style = {
+      return {
         overflow: this.panelsWithScrollbars.includes(panel.component) ? 'auto' : 'hidden',
-      } as any
-      if (this.getShowHeader(panel)) {
-        style.border = '0px solid #4dd4ef90'
-        // style.borderWidth = '1px 1px'
-        // style.borderRadius = '0 0 10px 10px'
-        style.backgroundColor = isDark ? 'black' : 'white'
-        style.color = isDark ? 'white' : 'black'
-        style.margin = '0 0.25rem 0.25rem 0.25rem'
-        style.padding = '0 4px 4px 4px'
-        // 1px 0.5rem 0.5rem 0.5rem'
+        // padding: '5px 5px',
       }
-      return style
     },
 
     restoreLeftPanel() {
@@ -951,13 +879,14 @@ export default defineComponent({
     getContainerStyle(panel: any, x: number, y: number) {
       const rightPadding = x === this.panels[y].length - 1 ? '6px' : '0'
       let style: any = {
-        padding: this.isMultipanel ? `6px ${rightPadding} 6px 6px` : '0px 0px',
-        // padding: `6px ${rightPadding} 6px 6px`,
+        // padding: this.isMultipanel ? `6px ${rightPadding} 6px 6px` : '0px 0px',
+        padding: `6px ${rightPadding} 6px 6px`,
       }
 
       // single file browser: no padding
       if (this.panels[y].length == 1 && this.panels[x].length == 1) {
         const singlePanel = this.panels[0][0]
+        // console.log('SINGLEPANEL!', singlePanel)
         if (['TabbedDashboardView', 'SplashPage'].indexOf(singlePanel.component) > -1) {
           style.padding = '0px 0px'
         }
@@ -965,7 +894,7 @@ export default defineComponent({
 
       if (this.fullScreenPanel.x == -1) return style
 
-      // full screen panel.
+      // full screen ?
       if (this.fullScreenPanel.x !== x) {
         style.display = 'none'
       } else {
@@ -1038,8 +967,7 @@ export default defineComponent({
   display: flex;
   flex-direction: row;
   flex: 1;
-  // background-color: var(--bgBold); // black; // var(--bgBrowser);
-  background-image: var(--bgSplashPage);
+  background-color: var(--bgBrowser);
 }
 
 .left-panel {
@@ -1053,6 +981,7 @@ export default defineComponent({
   flex: 1;
   display: flex;
   flex-direction: column;
+  filter: drop-shadow(0px 0px 5px #00000040);
 }
 
 .tile-row {
@@ -1063,7 +992,7 @@ export default defineComponent({
 }
 
 .map-tile {
-  grid-row: 4 / 5;
+  grid-row: 3 / 4;
   grid-column: 1 / 2;
   position: absolute;
   top: 0;
@@ -1092,7 +1021,7 @@ export default defineComponent({
   flex: 1;
   height: 100%;
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto 1fr;
   grid-template-columns: 1fr;
 }
 
@@ -1116,6 +1045,30 @@ export default defineComponent({
   transition-timing-function: ease-in;
   pointer-events: none;
 }
+
+// .control-buttons {
+//   // background-color: var(--bgPanel);
+//   padding: 0.25rem 0.5rem;
+//   z-index: 250;
+//   grid-row: 1 / 2;
+//   grid-column: 1 / 2;
+//   display: flex;
+//   flex-direction: column;
+//   margin: 0 auto auto 0;
+
+//   a {
+//     color: var(--textVeryPale);
+//     font-size: 0.9rem;
+//     margin: 2px 0rem 0.1rem -4px;
+//     padding: 2px 4px 1px 4px;
+//     border-radius: 10px;
+//   }
+
+//   a:hover {
+//     color: var(--textBold);
+//     background-color: var(--bgHover);
+//   }
+// }
 
 .left-panel-divider {
   position: absolute;
@@ -1161,15 +1114,14 @@ export default defineComponent({
   margin-left: 2px;
 
   h3 {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     line-height: 1.1rem;
-    margin: 6px 1rem 0 2px;
-    color: var(--link);
+    margin: 5px 1rem 0 2px;
+    color: white; // var(--textFancy);
   }
   p {
-    margin: 0 0 0 2px;
-    // margin-top: -0.5rem;
-    margin-bottom: -1px;
+    margin-top: -0.5rem;
+    margin-bottom: 0.5rem;
   }
 }
 
@@ -1208,16 +1160,11 @@ export default defineComponent({
 }
 
 .tile-header {
-  grid-row: 3 / 4;
-  grid-column: 1 / 2;
   user-select: none;
-  margin: 5px 0.25rem 0 0.25rem;
-  border-radius: 5px 5px 0 0;
-  // border-bottom: 1px solid var(--bg);
-  background-color: var(--bgBold);
-  padding: 2px 5px;
-  // background-color: var(--bgDashboardHeader);
-  z-index: 2;
+  background-color: var(--bgDashboardHeader);
+  padding: 2px 0px;
+  border-bottom: 1px solid #6666cc77;
+  display: flex;
 }
 
 .authorization-strip {
@@ -1246,9 +1193,14 @@ export default defineComponent({
   grid-row: 2 / 3;
   grid-column: 1 / 2;
   display: flex;
-  color: $colorSimWrapperYellow;
-  background-color: #11232a;
-  padding-right: 0.5rem;
+  color: var(--text);
+  background-color: var(--bgDashboard);
+  padding: 0 0.5rem;
+}
+
+.bread-crumbs {
+  padding: 2px 2rem 2px 0;
+  font-size: 0.9rem;
 }
 
 .restore-left-panel-button {
@@ -1296,77 +1248,5 @@ export default defineComponent({
   cursor: pointer;
   color: red;
   background-color: #ffffff20;
-}
-
-.settings-cog {
-  font-size: 0.9rem;
-  margin: auto 0.5rem auto 0.25rem;
-  color: #eee;
-}
-
-.settings-cog:hover {
-  color: $colorSimWrapperYellow;
-}
-
-.close-split-panel {
-  margin: auto 0.75rem auto 0.5rem;
-  color: #eee;
-}
-
-.close-split-panel:hover {
-  color: #a00;
-}
-
-.settings-popup {
-  position: absolute;
-  top: 35px;
-  right: 0.5rem;
-  z-index: 10001;
-  background-color: var(--bgBold);
-  padding: 1rem 1rem 0rem 1rem;
-  border: var(--borderThin);
-  border-radius: 3px;
-  filter: $filterShadow;
-}
-
-.left-panel-close-button {
-  position: absolute;
-  top: 4px;
-  right: 5px;
-  z-index: 5;
-  font-size: 1.1rem;
-  padding: 0px 7px;
-  color: #777;
-  opacity: 0.6;
-  cursor: pointer;
-  border-radius: 3px;
-}
-
-.left-panel-close-button:hover {
-  opacity: 1;
-  background-color: #335;
-  color: #c00;
-}
-
-.left-panel-close-button:active {
-  opacity: 1;
-  color: #f22;
-}
-
-.btn-header-back {
-  opacity: 0.5;
-  color: var(--link);
-  border: var(--borderThin); //1px solid var(--link);
-  border-radius: 12px;
-  padding: 5px 0 3px 0;
-  font-size: 0.6rem;
-  margin: 2px 3px 2px 1px;
-}
-.btn-header-back:hover {
-  background-color: var(--bg);
-}
-.btn-header-back:active {
-  border: 1px solid var(--linkHover);
-  color: var(--linkHover);
 }
 </style>

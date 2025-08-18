@@ -71,7 +71,6 @@
         :isRGBA="isRGBA"
         :mapIsIndependent="vizDetails.mapIsIndependent"
         :initialView="initialView"
-        :isAtlantis="isAtlantis"
       )
 
       background-map-on-top(v-if="isLoaded && isAreaMode")
@@ -289,7 +288,6 @@ const MyComponent = defineComponent({
       icons: { blueramp: IconBlueRamp },
       opacitySlider: 50,
       avroNetwork: null as any,
-      isAtlantis: false,
       isAreaMode: false,
       isAvroFile: false,
       isDraggingDivider: 0,
@@ -738,20 +736,13 @@ const MyComponent = defineComponent({
         columns = Object.keys(this.boundaryDataTable)
       }
 
-      // dont show nodes or coordinates
-      const hide = new Set(['id', 'from', 'to', 'source', 'dest', 'nodeCoordinates', 'nodeId'])
-      columns = columns.filter(m => !hide.has(m))
-
       if (this.vizDetails.tooltip?.length) {
         const delim = this.vizDetails.tooltip[0].indexOf(':') > -1 ? ':' : '.'
         columns = this.vizDetails.tooltip.map(tip => tip.substring(tip.indexOf(delim) + 1))
       }
 
-      // nice sort order
-      const sortColumns = ['id', 'from', 'to', ...columns]
-
       let featureProps = ''
-      sortColumns.forEach(column => {
+      columns.forEach(column => {
         if (this.boundaryDataTable[column]) {
           let value = this.boundaryDataTable[column].values[index]
           if (value == null) return
@@ -927,7 +918,7 @@ const MyComponent = defineComponent({
 
         // OR is this a bare geojson/geopackage/shapefile file? - build vizDetails manually
         if (
-          /(\.xml)(|\.gz)$/.test(filename) ||
+          /(network\.xml)(|\.gz)$/.test(filename) ||
           /(\.geojson)(|\.gz)$/.test(filename) ||
           /\.shp$/.test(filename) ||
           /\.gpkg$/.test(filename) ||
@@ -1567,7 +1558,7 @@ const MyComponent = defineComponent({
         // rowcount specified: join on the column name itself
         dataJoinColumn = columnName
       } else {
-        // nothing specified, let's hope they didn't want to join
+        // nothing specified: let's hope they didn't want to join
         if (this.datasetChoices.length > 1) {
           const boundaries = this.datasetChoices[0]
           if (datasetKey !== boundaries) {
@@ -2255,24 +2246,49 @@ const MyComponent = defineComponent({
     },
 
     async loadAvroNetwork(filename: string) {
-      const network = (await this.myDataManager.getRoadNetwork(
-        filename,
-        this.subfolder,
-        this.vizDetails,
-        null,
-        true
-      )) as any
+      const path = `${this.subfolder}/${filename}`
+      const blob = await this.fileApi.getFileBlob(path)
+
+      const records: any[] = await new Promise((resolve, reject) => {
+        const rows = [] as any[]
+        avro
+          .createBlobDecoder(blob)
+          .on('metadata', (schema: any) => {})
+          .on('data', (row: any) => {
+            rows.push(row)
+          })
+          .on('end', () => {
+            resolve(rows)
+          })
+      })
+
+      const network = records[0]
+
       // Build features with geometry, but no properties yet
       // (properties get added in setFeaturePropertiesAsDataSource)
       const numLinks = network.linkId.length
       const features = [] as any[]
+      const crs = network.crs || 'EPSG:4326'
+      const needsProjection = crs !== 'EPSG:4326' && crs !== 'WGS84'
 
       for (let i = 0; i < numLinks; i++) {
         const linkID = network.linkId[i]
-        const coords = [
-          network.source.slice(i * 2, i * 2 + 2),
-          network.dest.slice(i * 2, i * 2 + 2),
+        const fromOffset = 2 * network.from[i]
+        const toOffset = 2 * network.to[i]
+        let coordFrom = [
+          network.nodeCoordinates[fromOffset],
+          network.nodeCoordinates[1 + fromOffset],
         ]
+        let coordTo = [network.nodeCoordinates[toOffset], network.nodeCoordinates[1 + toOffset]]
+        if (!coordFrom || !coordTo) continue
+
+        if (needsProjection) {
+          coordFrom = Coords.toLngLat(crs, coordFrom)
+          coordTo = Coords.toLngLat(crs, coordTo)
+        }
+
+        const coords = [coordFrom, coordTo]
+
         const feature = {
           id: linkID,
           type: 'Feature',
@@ -2288,66 +2304,44 @@ const MyComponent = defineComponent({
       return features
     },
 
-    updateStatus(text: string) {
-      this.statusText = text
-      this.incrementLoadProgress()
-    },
-
     async loadXMLNetwork(filename: string): Promise<any> {
-      if (!this.myDataManager) throw Error('no datamanager')
+      if (!this.myDataManager) throw Error('links: no datamanager')
 
       this.statusText = 'Loading XML network...'
 
-      const features = [] as any[]
-
       try {
-        const network = (await this.myDataManager.getRoadNetwork(
+        const network = await this.myDataManager.getRoadNetwork(
           filename,
           this.subfolder,
           this.vizDetails,
-          this.updateStatus
+          (message: string) => {
+            this.statusText = message
+            this.incrementLoadProgress()
+          }
           // true // load extra columns
-        )) as any // TODO type NetworkLinks is a bit archaic at this point, needs an update
-
-        // Build features with geometry, but no properties yet
-        // (properties get added in setFeaturePropertiesAsDataSource)
-        const numLinks = network.linkId.length
-        const crs = network.crs || 'EPSG:4326'
-        const needsProjection = crs !== 'EPSG:4326' && crs !== 'WGS84'
-        this.isAtlantis = !!network.isAtlantis
-
+        )
+        // convert to geojson
+        const numLinks = network.source.length / 2
+        const boundaries = [] as any[]
         for (let i = 0; i < numLinks; i++) {
-          const linkID = network.linkId[i]
-          const fromOffset = 2 * network.from[i]
-          const toOffset = 2 * network.to[i]
-          let coordFrom = [
-            network.nodeCoordinates[fromOffset],
-            network.nodeCoordinates[1 + fromOffset],
-          ]
-          let coordTo = [network.nodeCoordinates[toOffset], network.nodeCoordinates[1 + toOffset]]
-
-          if (needsProjection) {
-            coordFrom = Coords.toLngLat(crs, coordFrom)
-            coordTo = Coords.toLngLat(crs, coordTo)
-          }
-
-          const coords = [coordFrom, coordTo]
-
+          const offset = i * 2
           const feature = {
-            id: linkID,
             type: 'Feature',
+            id: network.linkIds[i],
             properties: {},
-            geometry: { type: 'LineString', coordinates: coords },
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [network.source[offset], network.source[offset + 1]],
+                [network.dest[offset], network.dest[offset + 1]],
+              ],
+            },
           }
-          features.push(feature)
+          boundaries.push(feature)
         }
-
-        this.avroNetwork = network
-        this.isAvroFile = true
+        return boundaries
       } catch (e) {
-        this.$emit('error', '' + e)
-      } finally {
-        return features
+        console.error('' + e)
       }
     },
 
@@ -2468,8 +2462,6 @@ const MyComponent = defineComponent({
         await this.$nextTick()
         this.incrementLoadProgress()
 
-        this.boundaries = []
-        await this.$nextTick()
         this.boundaries = boundaries
         await this.$nextTick()
         this.incrementLoadProgress()
@@ -2513,7 +2505,7 @@ const MyComponent = defineComponent({
         // create the DataTable right here, we already have everything in memory
         const avroTable: DataTable = {}
 
-        const columns = [...this.avroNetwork.linkAttributes, 'from', 'to'] as string[]
+        const columns = this.avroNetwork.linkAttributes as string[]
         columns.sort()
 
         for (const colName of columns) {
@@ -2530,19 +2522,16 @@ const MyComponent = defineComponent({
           avroTable[colName] = dataColumn
         }
         // special case: allowedModes needs to be looked up
-        if (this.avroNetwork.allowedModes) {
-          const modeLookup = this.avroNetwork['modes']
-          const allowedModes = avroTable['allowedModes']
-          allowedModes.type = DataType.STRING
-          allowedModes.values = allowedModes.values.map((v: number) => modeLookup[v])
-          avroTable['modes'] = allowedModes
-          delete avroTable['allowedModes']
-        }
+        const modeLookup = this.avroNetwork['modes']
+        const allowedModes = avroTable['allowedModes']
+        allowedModes.type = DataType.STRING
+        allowedModes.values = allowedModes.values.map((v: number) => modeLookup[v])
+
         dataTable = await this.myDataManager.setRowWisePropertyTable(filename, avroTable, config)
 
         // special case: Avro networks have linkId instead of id, jesus christ!! :-()
         if ('linkId' in dataTable && !('id' in dataTable)) {
-          dataTable = { id: dataTable.linkId, ...dataTable } as DataTable
+          dataTable = { id: dataTable.linkId, ...dataTable }
           dataTable.id.name = 'id'
         }
 
@@ -2584,29 +2573,19 @@ const MyComponent = defineComponent({
       const numFeatures = this.boundaries.length
 
       for (let idx = 0; idx < numFeatures; idx += 256) {
-        try {
-          const centroid = turf.centerOfMass(this.boundaries[idx])
-          if (centroid?.geometry?.coordinates) {
-            centerLong += centroid.geometry.coordinates[0]
-            centerLat += centroid.geometry.coordinates[1]
-            numCoords += 1
-          }
-        } catch (e) {
-          // who cares
+        const centroid = turf.centerOfMass(this.boundaries[idx])
+        if (centroid?.geometry?.coordinates) {
+          centerLong += centroid.geometry.coordinates[0]
+          centerLat += centroid.geometry.coordinates[1]
+          numCoords += 1
         }
       }
 
       centerLong /= numCoords
       centerLat /= numCoords
-      let zoom = 9
 
       console.log('--- CALCULATED CENTER', centerLong, centerLat)
       // console.log('SMC: calculateAndMoveToCenter')
-      if (centerLong == undefined || centerLat == undefined) {
-        centerLong = 30
-        centerLat = 30
-        zoom = 5
-      }
 
       const view = {
         longitude: centerLong,
@@ -2614,7 +2593,7 @@ const MyComponent = defineComponent({
         center: [centerLong, centerLat],
         bearing: 0,
         pitch: 0,
-        zoom,
+        zoom: 9,
         initial: true,
       }
       this.initialView = view
@@ -2948,6 +2927,10 @@ const MyComponent = defineComponent({
     },
 
     clearData() {
+      // these lines change the properties of these objects
+      // WITHOUT reassigning them to new objects; this is
+      // essential for the garbage-collection to work properly.
+      // Otherwise we get a 500Mb memory leak on every view :-D
       this.boundaries = []
       this.centroids = []
       this.boundaryDataTable = {}
@@ -2961,10 +2944,6 @@ const MyComponent = defineComponent({
       this.dataCalculatedValues = null
       this.dataCalculatedValueLabel = ''
       this.bgLayers = {}
-      this.cbDatasetJoined = null
-      this.dataNormalizedValues = null
-      this.resizer = null
-      this.myDataManager.clearCache()
     },
 
     updateBgLayers() {
@@ -3154,7 +3133,7 @@ const MyComponent = defineComponent({
 
       // if we still need a centerpoint, calculate it
       if (this.needsInitialMapExtent && !this.vizDetails.center) {
-        await this.calculateAndMoveToCenter()
+        this.calculateAndMoveToCenter()
         this.needsInitialMapExtent = false
       }
 
@@ -3164,12 +3143,16 @@ const MyComponent = defineComponent({
       await this.$nextTick()
       await this.loadDatasets()
 
+      // Check URL query parameters
+
       this.datasets = Object.assign({}, this.datasets)
-      // this.config.datasets = JSON.parse(JSON.stringify(this.datasets))
+      this.config.datasets = JSON.parse(JSON.stringify(this.datasets))
       this.vizDetails = Object.assign({}, this.vizDetails)
 
       this.honorQueryParameters()
+
       this.statusText = ''
+
       this.loadBackgroundLayers()
     } catch (e) {
       this.$emit('error', '' + e)

@@ -21,11 +21,11 @@ onmessage = function (e) {
   projection = params.projection
 
   // if roadXML.network.nodes is missing, let's hope it's an Avro network
-  _avro = !_xml?.roadXML?.network?.nodes && _xml?.roadXML?.nodeCoordinates
+  _avro = !_xml?.roadXML?.network?.nodes && Array.isArray(_xml?.roadXML?.nodeCoordinates)
 
   try {
     if (_avro) {
-      avroCreateNodesAndLinks()
+      avroCreateNodesAndLinksFromXML()
     } else {
       createNodesAndLinksFromXML()
       convertCoords()
@@ -39,7 +39,7 @@ onmessage = function (e) {
 }
 
 // -----------------------------------------------------------
-function avroCreateNodesAndLinks() {
+function avroCreateNodesAndLinksFromXML() {
   postMessage({ status: 'Parsing MATSim network...' })
 
   const numLinks = _xml.roadXML.linkId.length
@@ -91,8 +91,8 @@ function processTransit() {
   generateStopFacilitiesFromXML()
 
   let uniqueRouteID = 0
-  let transitLines = _xml.transitXML.transitSchedule.transitLine
-  if (!Array.isArray(transitLines)) transitLines = [transitLines]
+  const transitLines = _xml.transitXML.transitSchedule.transitLine
+  // console.log('transitLines:', transitLines)
 
   for (const line of transitLines) {
     // get the GTFS route type from the attributes

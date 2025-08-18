@@ -17,8 +17,6 @@ import {
 import fileSystems from '@/fileSystemConfig'
 import { MAP_STYLES_ONLINE, MAP_STYLES_OFFLINE } from '@/Globals'
 
-import Gamepad from '@/js/Gamepad'
-
 // ----------------------------------------
 // ViewState has tricky logic, to handle cold-start, view-start,
 // and interactive motion.
@@ -49,9 +47,8 @@ const initialViewState = () => {
 
 const isMainThread = typeof window !== 'undefined'
 const initialLeftSection = isMainThread ? localStorage.getItem('activeLeftSection') || '' : ''
-const gamepad = isMainThread ? parseInt(localStorage.getItem('gamepadAxis') || '1') : 1
 
-// console.log('INITIAL LEFT SECTION', initialLeftSection)
+console.log('INITIAL LEFT SECTION', initialLeftSection)
 export default new Vuex.Store({
   state: {
     app: 'SimWrapper',
@@ -60,14 +57,12 @@ export default new Vuex.Store({
     breadcrumbs: [] as BreadCrumb[],
     credentials: { fake: 'fake' } as { [url: string]: string },
     dashboardWidth: '',
-    gamepad,
     activeLeftSection: initialLeftSection,
     isFullScreen: false,
     isFullWidth: true,
     isShowingLeftBar: true,
     isShowingFilesTab: true,
     isDarkMode: true,
-    isShowingBreadcrumbs: true,
     isInitialViewSet: false,
     favoriteLocations: [] as FavoriteLocation[],
     fileHandleAccessRequests: [] as any[],
@@ -157,9 +152,6 @@ export default new Vuex.Store({
     setShowLeftBar(state, value: boolean) {
       state.isShowingLeftBar = value
     },
-    setShowBreadcrumbs(state, value: boolean) {
-      state.isShowingBreadcrumbs = value
-    },
     setTopNavItems(
       state,
       value: {
@@ -192,10 +184,8 @@ export default new Vuex.Store({
         startup?: boolean
       }
     ) {
-      // enable gamepad
-      Gamepad.start()
-
       let honorIt = false
+
       // always honor a jump request
       if (value.jump) honorIt = true
       // honor an initial request IFF we are in startup state
@@ -358,19 +348,8 @@ export default new Vuex.Store({
         document.title = title ? title + ' - SimWrapper' : 'SimWrapper'
       }
     },
-    setGamepad(state, value: number) {
-      state.gamepad = value
-      if (isMainThread) localStorage.setItem('gamepadAxis', value.toString())
-    },
   },
-  actions: {
-    gamepadSetup() {
-      Gamepad.setup()
-    },
-    gamepadStop() {
-      Gamepad.stop()
-    },
-  },
+  actions: {},
   modules: {},
   getters: {
     mapStyle: state => {

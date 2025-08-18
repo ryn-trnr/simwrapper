@@ -1,6 +1,5 @@
 <template lang="pug">
 vue-good-table.plugin-panel(
-      data-testid="vue-good-table"
       :class="[globalState.isDarkMode ? 'darktable' : 'lighttable', hideHeader ? 'hide-header' : '', this.config.style, ...this.alignmentClasses]"
       :columns="columns"
       :rows="rows"
@@ -27,7 +26,7 @@ export default defineComponent({
     subfolder: { type: String, required: true },
     files: { type: Array, required: true },
     config: { type: Object as any, required: true },
-    cardTitle: { type: String, required: false },
+    cardTitle: { type: String, required: true },
     cardId: String,
     datamanager: { type: Object as PropType<DashboardDataManager>, required: true },
   },

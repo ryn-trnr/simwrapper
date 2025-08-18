@@ -156,7 +156,7 @@ const MyComponent = defineComponent({
         dest: new Float32Array(),
         linkIds: [],
         projection: '',
-      } as unknown as NetworkLinks,
+      } as NetworkLinks,
       linkIdLookup: {} as any,
       guiConfig: {
         speed: 0.1,
@@ -698,7 +698,7 @@ export default MyComponent
   display: flex;
   flex-direction: column;
   min-height: $thumbnailHeight;
-  background-color: var(--bg);
+  background: var(--bgMapPanel);
 }
 
 .message {

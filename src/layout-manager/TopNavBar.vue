@@ -1,22 +1,20 @@
 <template lang="pug">
-.top-hamburger-menu(@mouseleave="dbCloseQuickMenu")
+.my-navbar.flex-row(@mouseleave="dbCloseQuickMenu")
 
-  .hamburger-menu-icon(@click="showSidebarMenu=!showSidebarMenu"
+  .brand.flex-row(@click="showSidebarMenu=!showSidebarMenu"
     :class="{'is-highlighted': showSidebarMenu}"
   )
-    i.fa.fa-bars
-      //- i.fas.fa-cog(@click="toggleSettings()")
-
+    .sidebar-button
+      i.fa.fa-bars
       //- img(:src="imgSidebar")
-    //- .simwrapper-logo
-    //-   img(:src="imgLogo")
-    //- p: b SimWrapper
+    .simwrapper-logo
+      img(:src="imgLogo")
 
-  //- .title-section.flex1
-  //-   p {{  $store.state.windowTitle }}
+  .title-section.flex1
+    p {{  $store.state.windowTitle }}
 
-  //- .right-section
-  //-   p: i.fas.fa-cog(@click="toggleSettings()")
+  .right-section
+    p: i.fas.fa-cog(@click="toggleSettings()")
 
   settings-panel.settings-popup(v-if="showSettings"
     @close="toggleSettings()"
@@ -121,7 +119,7 @@ export default defineComponent({
   },
 
   mounted() {
-    this.dbCloseQuickMenu = debounce(this.closeQuickMenu, 750)
+    this.dbCloseQuickMenu = debounce(this.closeQuickMenu, 500)
   },
 
   methods: {
@@ -219,16 +217,11 @@ export default defineComponent({
 
 $appTag: #0e113a;
 
-.top-hamburger-menu {
+.my-navbar {
   user-select: none;
   gap: 1rem;
-<<<<<<< HEAD:src/layout-manager/TopNavBar.vue
   background-image: linear-gradient(30deg, #171c60, #171c60);
   color: white;
-=======
-  // background-image: linear-gradient(30deg, #425bda, #246a4f); // #801bec
-  color: #eee;
->>>>>>> upstream/master:src/layout-manager/HamburgerMenu.vue
   position: relative;
 }
 
@@ -244,14 +237,13 @@ $appTag: #0e113a;
   font-size: 16px;
 }
 
-.hamburger-menu-icon {
-  padding: 5px 12px;
+.brand {
+  gap: 1rem;
+  padding: 4px 0.75rem 3px 0.75rem;
   z-index: 10000;
-  margin-top: 1px;
-  margin-right: 2px;
 }
 
-.hamburger-menu-icon:hover {
+.brand:hover {
   background-color: $appTag;
   cursor: pointer;
 }
@@ -285,8 +277,8 @@ $appTag: #0e113a;
 
 .settings-popup {
   position: absolute;
-  // top: 34px;
-  // right: 5px;
+  top: 34px;
+  right: 5px;
   background-color: white;
   color: #333;
   padding: 0.5rem 0.5rem 0rem 0.5rem;
@@ -302,13 +294,11 @@ $appTag: #0e113a;
 
 .dropdown-holder {
   position: absolute;
-  top: 30px;
+  top: 34px;
   background-color: #eee;
   color: #333;
   filter: $filterShadow;
   padding: 0.25rem 4px 0.25rem 0;
-  z-index: 10002;
-  width: max-content;
 
   a {
     color: #333;
