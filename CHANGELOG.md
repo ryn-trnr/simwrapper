@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [4.1.1](https://github.com/simwrapper/simwrapper/compare/v4.1.0...v4.1.1) (2025-08-14)
+
+
+### Bug Fixes
+
+* **hexagons:** Big performance increase on large datasets ([0d05446](https://github.com/simwrapper/simwrapper/commit/0d05446e8cac54d22bf5598de9f26d5c324fcdfd))
+* **hexagons:** filter 0-values reliably, and only use one worker if dataset is small ([0285b7e](https://github.com/simwrapper/simwrapper/commit/0285b7e021e1270ef908b93977c4fce709262ae9))
+
+## [4.1.0](https://github.com/simwrapper/simwrapper/compare/v4.0.6...v4.1.0) (2025-08-10)
+
+
+### Features
+
+* Gamepad map pan/zoom support ([c7a590c](https://github.com/simwrapper/simwrapper/commit/c7a590c4a50eb1f35a32ab9be8580c554a7c0ac3))
+
+
+### Bug Fixes
+
+* **data:** Make sure background data workers are ready before sending them data ([26cd60a](https://github.com/simwrapper/simwrapper/commit/26cd60add28f8a73ba71d800d20eab6ad3c87011))
+* **hexagons:** Improve xy-hexagon performance with large datasets ([bfa80a6](https://github.com/simwrapper/simwrapper/commit/bfa80a64ecf02112ddc137d7845161971b654f1d))
+* **links:** link map not loading MATSIM XML networks ([25e300e](https://github.com/simwrapper/simwrapper/commit/25e300eda6dfad2f8215829aa19c9a1fff904d3a))
+* probe XML filetypes if filenames are not standard *.output_network.xml ([17e60bb](https://github.com/simwrapper/simwrapper/commit/17e60bb1900278ffff47fb915c7ef75113090850))
+* **transit:** load atlantis transit network correctly ([444bbd4](https://github.com/simwrapper/simwrapper/commit/444bbd44002d48f2dd450bc45e5fe366c1cf4aca))
+
+### [4.0.6](https://github.com/simwrapper/simwrapper/compare/v4.0.5...v4.0.6) (2025-07-30)
+
+
+### Bug Fixes
+
+* back button from individual vizes should return to files view ([b7ab059](https://github.com/simwrapper/simwrapper/commit/b7ab059f728a9ecaf4154070a9b679e9bdba4b9d)), closes [#342](https://github.com/simwrapper/simwrapper/issues/342)
+* don't access Google Fonts (breaks offline mode, slow, spying) ([d4d310b](https://github.com/simwrapper/simwrapper/commit/d4d310b372a69ec33aafe3bc73350a64833d877c))
+* **events:** flask app is not streaming large local files (events, xy-time) ([9e7deb8](https://github.com/simwrapper/simwrapper/commit/9e7deb845ea75c8b58b7fa50df072547f0be5d06)), closes [#479](https://github.com/simwrapper/simwrapper/issues/479)
+* **map:** Legend should display precise user-specified manual breakpoints if given ([d4493fd](https://github.com/simwrapper/simwrapper/commit/d4493fd0fd6c9cbfa9a842a1a863b1ab7bad3301))
+* **map:** Load XML networks better and without crashing ([#489](https://github.com/simwrapper/simwrapper/issues/489)) ([27a024f](https://github.com/simwrapper/simwrapper/commit/27a024f2c5f3efdf8a88131a189e634486bf1f40)), closes [#422](https://github.com/simwrapper/simwrapper/issues/422) [#477](https://github.com/simwrapper/simwrapper/issues/477)
+* **map:** Remove background map for Atlantis coordinates ([2994277](https://github.com/simwrapper/simwrapper/commit/299427702219941f71f0d15e62c327d7c5f09484))
+* ui cleanup with improved breadcrumbs and fixed split-panel layout ([4901485](https://github.com/simwrapper/simwrapper/commit/49014856287b59113f7376117fffc9cbc6be3244))
+* **xml:** XML parser failed to parse some files with DOCTYPE headers ([039d4e9](https://github.com/simwrapper/simwrapper/commit/039d4e931dbc15c9083b94ed34f2925c2a94b903))
+
 ### [4.0.5](https://github.com/simwrapper/simwrapper/compare/v4.0.4...v4.0.5) (2025-07-07)
 
 

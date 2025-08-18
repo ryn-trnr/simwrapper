@@ -41,14 +41,8 @@ onmessage = async function (e) {
   // does user want extra columns
   if (e.data.extraColumns) _extraColumns = true
 
-  // pre-filled buffer?
-  if (e.data.xmlBuffer) {
-    const cargo = await gUnzip(e.data.xmlBuffer)
-    memorySafeXMLParser(new Uint8Array(cargo), {})
-    return
-  }
-
-  if (e.data.crs) {
+  if ('crs' in e.data) {
+    // console.log(1)
     _crs = e.data.crs || 'Atlantis'
 
     switch (_networkFormat) {
@@ -63,7 +57,13 @@ onmessage = async function (e) {
         memorySafeXMLParser()
         break
     }
+  } else if (e.data.xmlBuffer) {
+    // console.log(5)
+    const cargo = await gUnzip(e.data.xmlBuffer)
+    memorySafeXMLParser(new Uint8Array(cargo), {})
+    return
   } else {
+    // console.log(2, e.data)
     const { filePath, fileSystem, vizDetails, options, isFirefox } = e.data
 
     // guess file type from extension
@@ -82,7 +82,9 @@ onmessage = async function (e) {
 }
 
 function guessFileTypeFromExtension(name: string) {
-  const f = name.toLocaleLowerCase()
+  // console.log(3, name)
+  const fname = name || _filePath
+  const f = fname.toLocaleLowerCase()
 
   // regex is ugly, but this tests for various extensions with/without .gz suffix
   if (/\.xml(|\.gz)$/.test(f)) return NetworkFormat.MATSIM_XML
@@ -201,7 +203,7 @@ async function parseSFCTANetworkAndPostResults(projection: string) {
   }
 
   // all done! post the links
-  const links = { source, dest, linkIds, projection: guessCRS }
+  const links = { source, dest, linkId: linkIds, projection: guessCRS }
 
   postMessage({ links }, [links.source.buffer, links.dest.buffer])
 
@@ -210,7 +212,7 @@ async function parseSFCTANetworkAndPostResults(projection: string) {
 
 async function memorySafeXMLParser(rawData?: Uint8Array, options?: any) {
   // pick up where we left off if user interactively gave us the CRS
-  if (rawData) _rawData = rawData
+  if (rawData && rawData.length) _rawData = rawData
   if (options) _options = options
   if (options?.crs) _crs = options.crs
 
@@ -402,7 +404,7 @@ async function memorySafeXMLParser(rawData?: Uint8Array, options?: any) {
     const links = {
       source,
       dest,
-      linkIds,
+      linkId: linkIds,
       freespeed,
       length,
       projection: coordinateReferenceSystem,
@@ -414,7 +416,7 @@ async function memorySafeXMLParser(rawData?: Uint8Array, options?: any) {
       links.length.buffer,
     ])
   } else {
-    const links = { source, dest, linkIds, projection: coordinateReferenceSystem }
+    const links = { source, dest, linkId: linkIds, projection: coordinateReferenceSystem }
     postMessage({ links }, [links.source.buffer, links.dest.buffer])
   }
 }
@@ -447,7 +449,7 @@ function buildLinkChunk(nodes: any, linkIds: any[], links: any[]) {
 
 async function fetchMatsimXmlNetwork(filePath: string, fileSystem: FileSystemConfig, options: any) {
   const rawData = await fetchGzip(filePath, fileSystem)
-  console.log({ rawData })
+  // console.log({ rawData })
   if (!rawData) throw 'Failed to unzip/parse'
   const u8 = new Uint8Array(rawData)
   try {
@@ -536,7 +538,7 @@ async function fetchGeojson(filePath: string, fileSystem: FileSystemConfig) {
     linkIds[i] = feature.id ?? feature.properties.id
   }
 
-  const links = { source, dest, linkIds, projection: 'EPSG:4326' }
+  const links = { source, dest, linkId: linkIds, projection: 'EPSG:4326' }
 
   // all done! post the links
   postMessage({ links }, [links.source.buffer, links.dest.buffer])
