@@ -27,6 +27,9 @@ import { FileSystemConfig, YamlConfigs } from '@/Globals'
 import TopSheetWorker from './TopSheetWorker.worker.ts?worker'
 import globalStore from '@/store'
 
+// To pass AWS tokens to DataFetcherWorker upon initialization
+import { getAuthTokenAndUsername } from '@/fileSystemConfig'
+
 export type TableRow = {
   title: string
   value: any
@@ -99,6 +102,9 @@ export default defineComponent({
       if (!this.files.length) return
 
       try {
+        // First get the auth tokens
+        const { token, username } = await getAuthTokenAndUsername();
+
         if (!this.solverThread) {
           console.log('spawning topsheet thread')
           this.solverThread = new TopSheetWorker()
@@ -107,6 +113,14 @@ export default defineComponent({
           }
         }
 
+        // First send auth initialization
+        this.solverThread.postMessage({
+          authToken: token,
+          username: username,
+          isInitialization: true
+        });
+
+        // Then send the actual topsheet command
         this.solverThread.postMessage({
           command: 'runTopSheet',
           fileSystemConfig: this.fileSystemConfig,
@@ -115,6 +129,11 @@ export default defineComponent({
           yaml: this.yaml,
           locale: this.$store.state.locale,
           allConfigFiles: this.allConfigFiles,
+          // Include auth context if needed for further processing
+          authContext: {
+            token,
+            username
+          }
         })
       } catch (e) {
         const message = '' + e

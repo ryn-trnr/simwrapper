@@ -30,6 +30,15 @@ type TopsheetYaml = {
 
 onmessage = async function (message) {
   const data = message.data
+  
+  // Handle auth initialization first
+  if (data.authToken) {
+    _authToken = data.authToken;
+    _username = data.username;
+    return;
+  }
+  
+  // Then handle normal commands
   switch (data.command) {
     case 'runTopSheet':
       const outputs = await runTopSheet(data)
@@ -57,6 +66,9 @@ let _yaml: TopsheetYaml = { files: {}, calculations: {}, outputs: [] }
 let _calculations: any = {}
 let _yamlFile: string = ''
 let _locale = 'en'
+// Store AWS auth tokens at module level
+let _authToken = '';
+let _username = '';
 
 let _allConfigYamls: YamlConfigs = {
   dashboards: {},
@@ -126,7 +138,10 @@ async function runTopSheet(props: {
   // console.log('TopSheet thread worker starting')
 
   try {
-    _fileSystem = new HTTPFileSystem(props.fileSystemConfig)
+    _fileSystem = new HTTPFileSystem({
+      ...props.fileSystemConfig,
+      authToken: _authToken
+    })
     _originalFolder = props.subfolder
     _subfolder = props.subfolder
     _files = props.files
@@ -611,20 +626,23 @@ async function parseVariousFileTypes(fileKey: string, filename: string, text: st
 }
 
 async function loadFileOrGzipFile(filename: string) {
-  const filepath = `${_subfolder}/${filename}`
-
-  // fetch the file
-  const blob = await _fileSystem.getFileBlob(filepath)
-  if (!blob) throw Error('BLOB IS NULL')
-  const buffer = await blob.arrayBuffer()
-
+  const filepath = `${_subfolder}/${filename}`.replace(/\/+/g, '/');
+  
+  // Get blob with auth headers (retry 3 times by default)
+  const blob = await _fileSystem.getFileBlob(filepath, 3, {
+    ...(_authToken ? { 'Authorization': `Bearer ${_authToken}` } : {})
+  });
+  
+  if (!blob) throw Error('BLOB IS NULL');
+  const buffer = await blob.arrayBuffer();
+  
   // recursively gunzip until it can gunzip no more:
-  const unzipped = await gUnzip(buffer)
+  const unzipped = await gUnzip(buffer);
 
   // convert to utf-8
-  const text = new TextDecoder().decode(unzipped)
+  const text = new TextDecoder().decode(unzipped);
 
-  return text
+  return text;
 }
 
 function parseNumbers(str: any) {
