@@ -89,7 +89,7 @@
               :class="{fade: myState.isLoading}"
             )
               a(v-if="myState?.svnProject?.baseURL"
-                :href="`${myState.svnProject.baseURL}/${myState.subfolder}/${file}`"
+                :href="`${myState.svnProject.baseURL}/${myState.subfolder}${file}`"
               ) {{ cleanName(file) }}
               a(v-else
                 @click="chromeOpenFile(file)"
