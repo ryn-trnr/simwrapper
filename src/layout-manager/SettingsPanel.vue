@@ -1,5 +1,5 @@
 <template lang="pug">
-.panel
+.xpanel
 
     //- .close(@click.stop="$emit('close')")
     //-   i.fa.fa-times
@@ -11,7 +11,7 @@
         outlined
         :style="isLight") {{ $t('light') }}
 
-      b-button.button.is-small.is-gray(@click="setTheme('dark')"
+      b-button.button.is-small.is-white(@click="setTheme('dark')"
         outlined
         :style="isDark") {{ $t('dark') }}
 
@@ -104,7 +104,7 @@ export default defineComponent({
           }
         : {
             backgroundColor: 'unset',
-            color: '#888',
+            color: '#222',
             borderColor: '#aaa',
           }
     },
@@ -118,11 +118,42 @@ export default defineComponent({
           }
         : {
             backgroundColor: 'unset',
-            color: '#888',
+            color: '#222',
             borderColor: '#aaa',
           }
     },
 
+<<<<<<< HEAD
+=======
+    isNormal(): any {
+      return this.state.gamepad == 1
+        ? {
+            backgroundColor: '#ffdd57',
+            color: '#222',
+            borderColor: '#aaa',
+          }
+        : {
+            backgroundColor: 'unset',
+            color: '#222',
+            borderColor: '#aaa',
+          }
+    },
+
+    isInverted(): any {
+      return this.state.gamepad == -1
+        ? {
+            backgroundColor: '#7957d5',
+            color: 'white',
+            borderColor: '#aaa',
+          }
+        : {
+            backgroundColor: 'unset',
+            color: '#222',
+            borderColor: '#aaa',
+          }
+    },
+
+>>>>>>> upstream/master
     isEN(): any {
       return this.state.locale == 'en'
         ? {
@@ -132,7 +163,7 @@ export default defineComponent({
           }
         : {
             backgroundColor: 'unset',
-            color: '#888',
+            color: '#222',
             borderColor: '#aaa',
           }
     },
@@ -146,7 +177,7 @@ export default defineComponent({
           }
         : {
             backgroundColor: 'unset',
-            color: '#888',
+            color: '#222',
             borderColor: '#aaa',
           }
     },
@@ -183,12 +214,15 @@ export default defineComponent({
 
 <style scoped lang="scss">
 @import '@/styles.scss';
+$appTag: #32926f;
 
-.panel {
+.xpanel {
   user-select: none;
   display: flex;
   flex-direction: column;
-  // width: 12rem;
+  filter: $filterShadow;
+  z-index: 30000 !important;
+  background-color: #eee;
 }
 
 h4 {
@@ -202,8 +236,10 @@ h4 {
 
 h5 {
   font-weight: bold;
-  margin-top: 0rem;
-  margin-bottom: 0.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 4px;
+  line-height: 1rem;
+  color: $appTag;
 }
 
 .top-panel {

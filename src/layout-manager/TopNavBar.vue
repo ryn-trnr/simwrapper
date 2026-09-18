@@ -4,6 +4,7 @@
   .brand.flex-row(@click="showSidebarMenu=!showSidebarMenu"
     :class="{'is-highlighted': showSidebarMenu}"
   )
+<<<<<<< HEAD:src/layout-manager/TopNavBar.vue
     .sidebar-button
       i.fa.fa-bars
       //- img(:src="imgSidebar")
@@ -15,6 +16,9 @@
 
   .right-section
     p: i.fas.fa-cog(@click="toggleSettings()")
+=======
+    i.fa.fa-bars
+>>>>>>> upstream/master:src/layout-manager/HamburgerMenu.vue
 
   settings-panel.settings-popup(v-if="showSettings"
     @close="toggleSettings()"
@@ -44,9 +48,9 @@
 
     .space
       .xsection Tools
-      .x-item(@click="go('/map')")
-        p: i.x-menu-icon.fas.fa-map
-        p Map Builder
+      //- .x-item(@click="go('/map')")
+      //-   p: i.x-menu-icon.fas.fa-map
+      //-   p Map Builder
       .x-item(@click="go('/matrix')")
         p: i.x-menu-icon.fas.fa-th
         p Matrix Viewer
@@ -223,6 +227,7 @@ $appTag: #0e113a;
   background-image: linear-gradient(30deg, #171c60, #171c60);
   color: white;
   position: relative;
+  z-index: 1000;
 }
 
 .simwrapper-logo {
@@ -299,6 +304,11 @@ $appTag: #0e113a;
   color: #333;
   filter: $filterShadow;
   padding: 0.25rem 4px 0.25rem 0;
+<<<<<<< HEAD:src/layout-manager/TopNavBar.vue
+=======
+  width: max-content;
+  z-index: 20000;
+>>>>>>> upstream/master:src/layout-manager/HamburgerMenu.vue
 
   a {
     color: #333;

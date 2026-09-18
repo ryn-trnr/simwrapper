@@ -66,7 +66,7 @@ export default new Vuex.Store({
     isInitialViewSet: false,
     favoriteLocations: [] as FavoriteLocation[],
     fileHandleAccessRequests: [] as any[],
-    flaskConfig: {} as { storage?: any; readme?: string; tagline?: string },
+    flaskConfig: {} as { storage?: any; readme?: string; tagline?: string; zones?: any },
     leftNavItems: null as null | {
       top: NavigationItem[]
       middle: NavigationItem[]
@@ -133,7 +133,7 @@ export default new Vuex.Store({
       state.credentials[value.url] = creds
       state.authAttempts++
     },
-    setFlaskConfig(state, json: { storage?: any; readme?: string; tagline?: string }) {
+    setFlaskConfig(state, json: { storage?: any; readme?: string; tagline?: string; zones?: any }) {
       state.flaskConfig = json
     },
 
@@ -173,8 +173,8 @@ export default new Vuex.Store({
     setMapCamera(
       state,
       value: {
-        longitude: number
-        latitude: number
+        longitude?: number
+        latitude?: number
         bearing: number
         pitch: number
         zoom: number
@@ -195,7 +195,21 @@ export default new Vuex.Store({
 
       if (honorIt) {
         // remove logic, just keep camera settings
-        const { jump, startup, initial, ...camera } = value
+        const { jump, startup, initial, ...camera } = value as any
+        // make sure every combo of center,lat,lng works
+        if (camera.center?.lng) {
+          camera.longitude = camera.center.lng
+          camera.latitude = camera.center.lat
+        }
+        if (camera.center?.[0]) {
+          camera.longitude = camera.center[0]
+          camera.latitude = camera.center[1]
+          camera.center = { lng: camera.longitude, lat: camera.latitude }
+        }
+        if (!camera.center) {
+          camera.center = { lng: camera.longitude, lat: camera.latitude }
+        }
+
         state.viewState = camera
         state.isInitialViewSet = true
       } else {

@@ -163,6 +163,7 @@ export default defineComponent({
     async processBuffer(name: string, buffer: ArrayBuffer) {
       return new Promise<DataTable>(async (resolve, reject) => {
         try {
+<<<<<<< HEAD
           // First get the auth tokens
           const { token, username } = await getAuthTokenAndUsername();
 
@@ -203,6 +204,16 @@ export default defineComponent({
             reject(new Error(`Failed to get auth tokens: ${authError.message}`));
           } else {
             reject(new Error('Failed to get auth tokens: Unknown error'));
+=======
+          thread.onmessage = e => {
+            // wait for thread ready signal
+            if (e.data.ready) {
+              thread.postMessage({ config: { dataset: name }, buffer }, [buffer])
+              return
+            }
+            thread.terminate()
+            resolve(e.data)
+>>>>>>> upstream/master
           }
         }
       });
@@ -224,6 +235,7 @@ export default defineComponent({
     async fetchDataset(dataset: string) {
       return new Promise<DataTable>(async (resolve, reject) => {
         try {
+<<<<<<< HEAD
           // First get the auth tokens
           const { token, username } = await getAuthTokenAndUsername();
           
@@ -269,6 +281,21 @@ export default defineComponent({
           } catch (err) {
             thread.terminate();
             reject(err instanceof Error ? err : new Error(String(err)));
+=======
+          thread.onmessage = e => {
+            // wait for thread ready signal
+            if (e.data.ready) {
+              thread.postMessage({
+                fileSystemConfig: this.fileSystem,
+                subfolder: this.subfolder,
+                files: this.filesInFolder,
+                config: { dataset },
+              })
+              return
+            }
+            thread.terminate()
+            resolve(e.data)
+>>>>>>> upstream/master
           }
         } catch (authError) {
           reject(

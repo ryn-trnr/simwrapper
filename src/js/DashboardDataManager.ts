@@ -52,6 +52,7 @@ export interface NetworkLinks {
   dest: Float32Array
   linkIds: any[]
   projection: String
+  linkId: any[]
 }
 
 // This tells us if our environment has the Chrome File System Access API, meaning we are in Chrome
@@ -801,6 +802,67 @@ export default class DashboardDataManager {
         return
       }
 
+<<<<<<< HEAD
+=======
+      // ------ side quest: get EPSG from output_config
+      const configEPSG = await this._getEPSGfromConfig()
+      // WASM XML -----------
+      if (
+        filename.toLocaleLowerCase().endsWith('.xml') ||
+        filename.toLocaleLowerCase().endsWith('.xml.gz')
+      ) {
+        try {
+          const promise: Promise<any> = new Promise<any>((resolve, reject) => {
+            const wasmWorker = new WasmXmlNetworkParser() // as unknown as any
+            wasmWorker.onmessage = (event: any) => {
+              const data = event.data
+              if ('requestCRS' in data) {
+                // No CRS in network. But if we have a CRS in output_config, use that!
+                if (configEPSG && configEPSG !== 'Atlantis') {
+                  data.confirmedCRS = configEPSG
+                  wasmWorker.postMessage({ confirmedCRS: configEPSG })
+                  return
+                }
+                // We need to ask the user.
+                const msg = data.requestCRS ? '"Atlantis" coordinates found. ' : ''
+                let crs =
+                  prompt(
+                    `Enter EPSG projection code.\n\n${msg}Enter projection, e.g. EPSG:25832, or cancel to load without a base map.`
+                  ) || 'Atlantis'
+                if (Number.isInteger(parseInt(crs))) crs = `EPSG:${crs}`
+                wasmWorker.postMessage({ confirmedCRS: crs })
+                return
+              }
+              if (data.error) {
+                wasmWorker.terminate()
+                reject(data.error)
+              }
+              if (data.status && cbStatus) {
+                cbStatus(data.status)
+                return
+              }
+              wasmWorker.terminate()
+              resolve(data.network)
+            }
+            wasmWorker.postMessage({
+              path,
+              crs: options.crs || '',
+              fsConfig: this.fileApi,
+              options,
+            })
+          })
+          const network = await promise
+          resolve(network)
+        } catch (e) {
+          console.error(e)
+          reject(e)
+        } finally {
+          return
+        }
+      }
+
+      // OTHER: GEOJSON, SHAPEFILE, ...
+>>>>>>> upstream/master
       const thread = new RoadNetworkLoader() as any
       try {
         thread.onmessage = (e: MessageEvent) => {

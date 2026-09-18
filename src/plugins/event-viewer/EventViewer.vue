@@ -84,7 +84,7 @@ import HTTPFileSystem from '@/js/HTTPFileSystem'
 import LegendBox from '@/components/viz-configurator/LegendBox.vue'
 import LegendStore from '@/js/LegendStore'
 import TimeSlider from '@/components/TimeSlider.vue'
-import EventMap from './EventDeckMap'
+import EventMap from './EventDeckMap.vue'
 import ZoomButtons from '@/components/ZoomButtons.vue'
 import * as Turf from '@turf/turf'
 
@@ -160,9 +160,9 @@ const MyComponent = defineComponent({
       linkIdLookup: {} as any,
       guiConfig: {
         speed: 0.1,
-        size: 16,
+        size: 12,
       },
-      viewId: ('xyt-id-' + Math.floor(1e12 * Math.random())) as any,
+      viewId: Math.floor(1e12 * Math.random()),
       configId: ('gui-config-' + Math.floor(1e12 * Math.random())) as any,
       timeLabels: [0, 1] as any[],
       startTime: 0,
@@ -250,21 +250,6 @@ const MyComponent = defineComponent({
     },
   },
   methods: {
-    setupLogoMover() {
-      this.resizer = new ResizeObserver(this.moveLogo)
-      const deckmap = document.getElementById(`id-${this.viewId}`) as HTMLElement
-      this.resizer.observe(deckmap)
-    },
-
-    moveLogo() {
-      const deckmap = document.getElementById(`${this.viewId}`) as HTMLElement
-      const logo = deckmap?.querySelector('.mapboxgl-ctrl-bottom-left') as HTMLElement
-      if (logo) {
-        const right = deckmap.clientWidth > 640 ? '280px' : '36px'
-        logo.style.right = right
-      }
-    },
-
     setupGui() {
       this.guiController = new GUI({
         title: 'VIEW SETTINGS',
@@ -535,9 +520,8 @@ const MyComponent = defineComponent({
         }
         this.vizDetails.center = [lng / cnt, lat / cnt]
         globalStore.commit('setMapCamera', {
-          longitude: lng / cnt || 13.45,
-          latitude: lat / cnt || 52.5,
-          zoom: 10,
+          center: this.vizDetails.center,
+          zoom: 9,
         })
       }
 
@@ -647,8 +631,6 @@ const MyComponent = defineComponent({
     await this.buildThumbnail()
 
     if (this.thumbnail) return
-
-    this.setupLogoMover()
 
     // ----------------------------------------------------
     this.setupGui()

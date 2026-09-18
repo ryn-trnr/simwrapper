@@ -2,10 +2,24 @@
 .dashboard(:class="{wiide, 'is-panel-narrow': isPanelNarrow, 'is-fullscreen-dashboard': isFullScreenDashboard }" :id="viewId")
   .dashboard-content(:class="{wiide, 'is-fullscreen-dashboard': isFullScreenDashboard}" :style="dashWidthCalculator")
 
+<<<<<<< HEAD
     .dashboard-header(v-if="!fullScreenCardId && (title + description)"
       :class="{wiide, 'is-panel-narrow': isPanelNarrow}")
       h2 {{ title }}
       p {{ description }}
+=======
+    .dashboard-header.flex-row(v-if="!fullScreenCardId && (title + description)"
+      :class="{wiide, 'is-panel-narrow': isPanelNarrow}"
+    )
+      .cardtitles.flex1
+        h2 {{ title }}
+        p {{ description }}
+      .favstar
+        p.favorite-icon(title="Favorite"
+          :class="{'is-favorite': isFavorite}"
+          @click="clickedFavorite"
+        ): i.fa.fa-star
+>>>>>>> upstream/master
 
     .tabs.is-centered(v-if="subtabs.length")
       ul.tab-row
@@ -58,7 +72,7 @@
           :id="card.id"
           :class="{'is-loaded': card.isLoaded}"
         )
-          component.dash-card(
+          component.dash-card(v-if="card.visible"
             :is="getCardComponent(card)"
             :fileSystemConfig="fileSystemConfig"
             :subfolder="row.subtabFolder || xsubfolder"
@@ -89,7 +103,13 @@ import type { PropType } from 'vue'
 import YAML from 'yaml'
 
 import globalStore from '@/store'
+<<<<<<< HEAD
 import { FileSystemConfig, Status, YamlConfigs } from '@/Globals'
+=======
+import { sleep } from '@/js/util'
+
+import { FavoriteLocation, FileSystemConfig, Status, YamlConfigs } from '@/Globals'
+>>>>>>> upstream/master
 import HTTPFileSystem from '@/js/HTTPFileSystem'
 
 import TopSheet from '@/components/TopSheet/TopSheet.vue'
@@ -134,6 +154,7 @@ export default defineComponent({
       fullScreenCardId: '',
       resizers: {} as { [id: string]: any },
       infoToggle: {} as { [id: string]: boolean },
+      isDestroying: false,
       isFullScreenDashboard: false,
       isResizing: false,
       opacity: {} as any,
@@ -523,6 +544,7 @@ export default defineComponent({
           Vue.set(this.opacity, card.id, 0.5)
           Vue.set(this.infoToggle, card.id, false)
           Vue.set(card, 'errors', [] as string[])
+          Vue.set(card, 'visible', false)
 
           // Card header could be hidden
           if (!card.title && !card.description) card.showHeader = false
@@ -533,6 +555,20 @@ export default defineComponent({
 
         this.rows.push({ id: rowId, cards, subtabFolder })
         this.rowFlexWeights.push(flexWeight)
+      }
+      this.slowRollTheCardAppearances()
+    },
+
+    async slowRollTheCardAppearances() {
+      for (const row of this.rows) {
+        for (const card of row.cards) {
+          // cancel if user ditches the page
+          if (this.isDestroying) return
+
+          card.visible = true
+          await this.$nextTick()
+          await sleep(200)
+        }
       }
       this.$emit('layoutComplete')
     },
@@ -585,7 +621,9 @@ export default defineComponent({
 
     handleResize() {
       const dashboard = document.getElementById(this.viewId) as HTMLElement
-      if (dashboard) this.isPanelNarrow = dashboard.clientWidth < 800
+      if (dashboard) {
+        this.isPanelNarrow = dashboard.clientWidth < 800
+      }
       this.setFullScreen()
       this.$store.commit('resize')
     },
@@ -594,6 +632,10 @@ export default defineComponent({
       if (this.isPanelNarrow) {
         // Narrow panels are never fullscreen
         this.isFullScreenDashboard = false
+        // Well, unless there's just one row
+        if (this.rows.length === 1) {
+          this.isFullScreenDashboard = true
+        }
       } else {
         // help user with capitalization
         this.isFullScreenDashboard =
@@ -639,8 +681,10 @@ export default defineComponent({
       this.$emit('error', 'Error setting up dashboard, check YAML?')
     }
   },
+
   beforeDestroy() {
     this.resizers = {}
+    this.isDestroying = true
     this.narrowPanelObserver?.disconnect()
     window.removeEventListener('resize', this.resizeAllCards)
   },
@@ -669,10 +713,6 @@ export default defineComponent({
   }
 }
 
-// .dashboard.wiide {
-//   // padding-left: 1rem;
-// }
-
 .dashboard-header {
   margin: 1rem 3rem 1rem 0rem;
 
@@ -685,10 +725,6 @@ export default defineComponent({
     line-height: 1.4rem;
   }
 }
-
-// .dashboard-header.wiide {
-//   // margin-right: 3rem;
-// }
 
 .dash-row {
   display: flex;
@@ -817,6 +853,7 @@ ul.tab-row {
   padding: 0 0;
   margin: 0 0;
   border-bottom: none;
+  font-size: 0.9rem;
 }
 
 li.tab-entry b a {
@@ -866,4 +903,34 @@ li.is-not-active b a {
   color: red;
   background-color: #88888833;
 }
+<<<<<<< HEAD
+=======
+
+.favorite-icon {
+  margin: auto -0.5rem auto 1rem;
+  opacity: 0.6;
+  font-size: 1.1rem;
+  color: #757bff;
+  // text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+}
+
+.is-favorite {
+  opacity: 1;
+  color: #4f58ff;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+}
+
+.favorite-icon:hover {
+  cursor: pointer;
+}
+
+@media only screen and (max-width: 640px) {
+  .cardtitles {
+    padding: 0 4px;
+  }
+  .tabs {
+    margin-bottom: 0.5rem !important;
+  }
+}
+>>>>>>> upstream/master
 </style>

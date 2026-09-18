@@ -15,8 +15,13 @@ enum FileSystemType {
   FETCH,
   CHROME,
   GITHUB,
+<<<<<<< HEAD
   AWS,
   AZURE,
+=======
+  FLASK,
+  LAKEFS,
+>>>>>>> upstream/master
 }
 
 naturalSort.insensitive = true;
@@ -40,10 +45,17 @@ class HTTPFileSystem {
   private fsHandle: FileSystemAPIHandle | null
   private store: any
   private isGithub: boolean
+<<<<<<< HEAD
   private isAWS: boolean
   private isOMX: boolean
   private type: FileSystemType
   private authToken: string
+=======
+  private isZIB: boolean
+  private isFlask: boolean
+  private type: FileSystemType
+  private fileLinkLookup: any = {}
+>>>>>>> upstream/master
 
   constructor(project: FileSystemConfig, store?: any) {
     this.urlId = project.slug
@@ -52,15 +64,25 @@ class HTTPFileSystem {
     this.fsHandle = project.handle || null
     this.store = store || null
     this.isGithub = !!project.isGithub
+<<<<<<< HEAD
     this.isAWS = !!project.isAWS
     this.isOMX = !!project.omx
     this.authToken = project.authToken || ''
+=======
+    this.isFlask = !!project.flask
+    this.isZIB = !!project.isZIB
+>>>>>>> upstream/master
 
     this.type = FileSystemType.FETCH
     if (this.fsHandle) this.type = FileSystemType.CHROME
     if (this.isGithub) this.type = FileSystemType.GITHUB
+<<<<<<< HEAD
     if (this.isAWS) this.type = FileSystemType.AWS
     if (this.isOMX) this.type = FileSystemType.AZURE
+=======
+    if (this.isFlask) this.type = FileSystemType.FLASK
+    if (this.isZIB) this.type = FileSystemType.LAKEFS
+>>>>>>> upstream/master
 
     this.baseUrl = project.baseURL;
     if (!project.baseURL.endsWith('/')) this.baseUrl += '/';
@@ -122,6 +144,7 @@ class HTTPFileSystem {
     };
 
     switch (this.type) {
+<<<<<<< HEAD
         case FileSystemType.CHROME:
             return this._getFileFromChromeFileSystem(scaryPath);
         case FileSystemType.GITHUB:
@@ -137,6 +160,62 @@ class HTTPFileSystem {
   }
 
   private async _getFileFetchResponse(scaryPath: string): Promise<Response> {
+=======
+      case FileSystemType.CHROME:
+        return this._getFileFromChromeFileSystem(scaryPath)
+      case FileSystemType.GITHUB:
+        return this._getFileFromGitHub(scaryPath)
+      case FileSystemType.LAKEFS:
+        return this._getFileFromLakeFS(scaryPath)
+      case FileSystemType.FLASK:
+        return this._getFileFromAzure(scaryPath)
+      case FileSystemType.FETCH:
+      default:
+        return this._getFileFetchResponse(scaryPath)
+    }
+  }
+
+  private async _getFileFromLakeFS(
+    scaryPath: string,
+    options?: { maxBytes: number }
+  ): Promise<Response> {
+    // ---LAKEFS: Don't change path!!
+    let betterPath = scaryPath.replaceAll('//', '/')
+    betterPath = scaryPath.replaceAll('//', '/')
+    console.log({ betterPath })
+    let path = this.baseUrl + betterPath
+    if (path.endsWith('/')) path = path.slice(0, -1)
+    // console.log({ scaryPath, path })
+    // ---LAKEFS: no extra headers!
+    // const headers: any = {}
+    // if (options?.maxBytes) headers.Range = `bytes=0-${options.maxBytes - 1}`
+
+    // const credentials = globalStore.state.credentials[this.urlId]
+    // if (this.needsAuth) headers['Authorization'] = `Basic ${credentials}`
+
+    // const myRequest = new Request(path, { headers })
+
+    const justFileName = betterPath.slice(betterPath.lastIndexOf('/') + 1)
+    const lookup = this.fileLinkLookup[justFileName]
+    if (lookup) path = lookup
+    console.log({ lookup })
+
+    const response = await fetch(path).then(response => {
+      // Check HTTP Response code: 200 is OK, everything else is a problem
+      if (response.status >= 300) {
+        console.warn('Status:', response.status)
+        throw response
+      }
+      return response
+    })
+    return response
+  }
+
+  private async _getFileFetchResponse(
+    scaryPath: string,
+    options?: { maxBytes: number }
+  ): Promise<Response> {
+>>>>>>> upstream/master
     const path = this.cleanURL(scaryPath)
     // console.log(path)
     const headers: any = {}
@@ -488,6 +567,9 @@ class HTTPFileSystem {
       case FileSystemType.FETCH:
         stream = await this._getFileFetchResponse(scaryPath).then(response => response.body)
         return stream as any
+      case FileSystemType.LAKEFS:
+        stream = await this._getFileFromLakeFS(scaryPath, options).then(response => response.body)
+        return stream as any
       default:
         throw Error('Not implemented')
     }
@@ -525,9 +607,13 @@ class HTTPFileSystem {
         case FileSystemType.AZURE:
           dirEntry = await this._getDirectoryFromAzure(stillScaryPath)
           break
+<<<<<<< HEAD
         case FileSystemType.AWS:
           dirEntry = await this._getDirectoryFromAWS(stillScaryPath)
           break
+=======
+        case FileSystemType.LAKEFS:
+>>>>>>> upstream/master
         case FileSystemType.FETCH:
         default:
           dirEntry = await this._getDirectoryFromURL(stillScaryPath)
@@ -538,8 +624,17 @@ class HTTPFileSystem {
       dirEntry.dirs.sort((a, b) => naturalSort(a, b));
       dirEntry.files.sort((a, b) => naturalSort(a, b));
 
+<<<<<<< HEAD
       CACHE[this.urlId][stillScaryPath] = dirEntry;
       return dirEntry;
+=======
+      // ---LAKEFS: don't cache results because they expire in 5 minutes :-/
+      // TODO: later we can check the expiration time and be a bit more gracious
+      if (this.type !== FileSystemType.LAKEFS) {
+        CACHE[this.urlId][stillScaryPath] = dirEntry
+      }
+      return dirEntry
+>>>>>>> upstream/master
     } catch (e) {
       throw Error('' + e);
     }
@@ -608,6 +703,7 @@ class HTTPFileSystem {
   }
 
   async _getDirectoryFromURL(stillScaryPath: string) {
+<<<<<<< HEAD
     // console.log(stillScaryPath)
     const response = await this._getFileResponse(stillScaryPath).then();
     const htmlListing = await response.text();
@@ -718,6 +814,13 @@ class HTTPFileSystem {
       handles: {}, // Add any additional metadata if needed
       html: htmlText, // Store the raw HTML for display
     };
+=======
+    const response = await this._getFileResponse(stillScaryPath)
+    // console.log(response)
+    const htmlListing = await response.text()
+    const dirEntry = this.buildListFromHtml(htmlListing)
+    return dirEntry
+>>>>>>> upstream/master
   }
 
   async findAllYamlConfigs(folder: string): Promise<YamlConfigs> {
@@ -778,13 +881,56 @@ class HTTPFileSystem {
   }
 
   private buildListFromHtml(data: string): DirectoryEntry {
+<<<<<<< HEAD
     if (data.indexOf('SimpleWebServer') > -1) return this.buildListFromSimpleWebServer(data);
     if (data.indexOf('<ul>') > -1) return this.buildListFromSVN(data);
     if (data.indexOf('<ul id="files">') > -1) return this.buildListFromNpxServe(data);
     if (data.indexOf('<table>') > -1) return this.buildListFromApache24(data);
     if (data.indexOf('\n<a ') > -1) return this.buildListFromNGINX(data);
+=======
+    if (data.indexOf('<title>lakeFS File Browser') > -1) return this.buildListFromLakeFS(data)
+    if (data.indexOf('SimpleWebServer') > -1) return this.buildListFromSimpleWebServer(data)
+    if (data.indexOf('<ul>') > -1) return this.buildListFromSVN(data)
+    if (data.indexOf('<ul id="files">') > -1) return this.buildListFromNpxServe(data)
+    if (data.indexOf('<table>') > -1) return this.buildListFromApache24(data)
+    if (data.indexOf('\n<a ') > -1) return this.buildListFromNGINX(data)
+>>>>>>> upstream/master
 
     return { dirs: [], files: [], handles: {} };
+  }
+
+  private buildListFromLakeFS(data: string): DirectoryEntry {
+    const regex = /">(.*?)<\/a/
+    const linkregex = /href="(.*?)" target/
+    const dirs = [] as string[]
+    const files = [] as string[]
+    // const fileLinks = [] as string[]
+
+    const lines = data.split('\n')
+    const entries = lines.filter(line => line.startsWith('<li>'))
+    entries.forEach(line => {
+      const href = line.indexOf('<a href="')
+      if (href < 0) return
+      const entry = line.match(regex)
+      if (!entry) return
+
+      // got a name!
+      const name = entry[1] // regex returns first match in [1]
+
+      if (line.startsWith('<li>[DIR]')) {
+        dirs.push(name.substring(0, name.length))
+      } else {
+        const filenames = line.match(linkregex)
+        if (!filenames) return
+        const fileLink = filenames[1]
+        files.push(name)
+        this.fileLinkLookup[name] = fileLink
+        // fileLinks.push(fileLink)
+      }
+    })
+
+    console.log({ dirs, files, lookup: this.fileLinkLookup })
+    return { dirs, files, handles: {} }
   }
 
   private buildListFromSimpleWebServer(data: string): DirectoryEntry {

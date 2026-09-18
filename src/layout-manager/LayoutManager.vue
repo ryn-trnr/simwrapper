@@ -64,6 +64,25 @@
         :ref="`dragContainer${x}-${y}`"
         :style="getContainerStyle(panel,x,y)"
       )
+<<<<<<< HEAD
+=======
+
+        //- only show one settings panel
+        settings-panel.settings-popup(v-if="showSettings && (!x) && (!y)" @close="showSettings=false")
+        .breadcrumb-row(v-if="$store.state.isShowingBreadcrumbs")
+          bread-crumbs.flex1(
+            :root="panel.props.root || ''"
+            :subfolder="panel.props.xsubfolder || panel.props.subfolder || ''"
+            @navigate="onNavigate($event,x,y)"
+          )
+          //- only show cog if we're first/only panel
+          .settings-cog(v-if="panel.component !== 'SplashPage' && (!x) && (!y)" @click="showSettings=!showSettings")
+            button: i.fas.fa-cog
+          .close-split-panel(v-if="isMultipanel" @click="onClose(x,y)")
+            button: i.fas.fa-times
+
+        //- .tile-header.flex-row(v-if="false")
+>>>>>>> upstream/master
         .tile-header.flex-row(v-if="getShowHeader(panel)")
 
           .tile-buttons(v-if="panel.component !== 'SplashPage'")
@@ -344,6 +363,7 @@ export default defineComponent({
     },
 
     async buildLayoutFromURL() {
+<<<<<<< HEAD
       let pathMatch = this.$route.params.pathMatch;
       if (pathMatch.startsWith('/')) pathMatch = pathMatch.slice(1);
 
@@ -372,6 +392,11 @@ export default defineComponent({
         ];
         return;
       }
+=======
+      let pathMatch = this.$route.params.pathMatch
+      this.prevUrl = pathMatch
+      if (pathMatch.startsWith('/')) pathMatch = pathMatch.slice(1)
+>>>>>>> upstream/master
 
       // splash page:
       if (!pathMatch || pathMatch === '/') {
@@ -669,6 +694,11 @@ export default defineComponent({
     },
 
     onNavigate(newPanel: { component: string; props: any }, x: number, y: number) {
+<<<<<<< HEAD
+=======
+      this.showSettings = false
+
+>>>>>>> upstream/master
       if (newPanel.component === 'SplashPage') {
         this.panels[y][x] = { component: 'SplashPage', props: {}, key: Math.random() }
       } else {
@@ -1249,4 +1279,76 @@ export default defineComponent({
   color: red;
   background-color: #ffffff20;
 }
+<<<<<<< HEAD
+=======
+
+.settings-cog {
+  font-size: 0.9rem;
+  margin: auto 0.5rem auto 0.25rem;
+  color: #eee;
+}
+
+.settings-cog:hover {
+  color: $colorSimWrapperYellow;
+}
+
+.close-split-panel {
+  margin: auto 0.75rem auto 0.5rem;
+  color: #eee;
+}
+
+.close-split-panel:hover {
+  color: #a00;
+}
+
+.settings-popup {
+  position: absolute;
+  top: 30px;
+  right: 13px;
+  z-index: 10001;
+  padding: 1rem 1rem 0rem 1rem;
+  border-radius: 0 0 3px 3px;
+}
+
+.left-panel-close-button {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  z-index: 5;
+  font-size: 1.1rem;
+  padding: 0px 7px;
+  color: #777;
+  opacity: 0.6;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.left-panel-close-button:hover {
+  opacity: 1;
+  background-color: #335;
+  color: #c00;
+}
+
+.left-panel-close-button:active {
+  opacity: 1;
+  color: #f22;
+}
+
+.btn-header-back {
+  opacity: 0.5;
+  color: var(--link);
+  border: var(--borderThin); //1px solid var(--link);
+  border-radius: 12px;
+  padding: 5px 0 3px 0;
+  font-size: 0.6rem;
+  margin: 2px 3px 2px 1px;
+}
+.btn-header-back:hover {
+  background-color: var(--bg);
+}
+.btn-header-back:active {
+  border: 1px solid var(--linkHover);
+  color: var(--linkHover);
+}
+>>>>>>> upstream/master
 </style>

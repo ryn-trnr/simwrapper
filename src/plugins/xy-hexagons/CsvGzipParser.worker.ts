@@ -1,11 +1,8 @@
 /**
  * Load a gzip file, parse its contents and return a set of ArrayBuffers for display.
  */
-import Papa from '@simwrapper/papaparse'
-
 import { FileSystemConfig } from '@/Globals'
 import HTTPFileSystem from '@/js/HTTPFileSystem'
-import Coords from '@/js/Coords'
 
 import { gUnzip, findMatchingGlobInFiles } from '@/js/util'
 
@@ -69,7 +66,15 @@ function startLoading(props: {
  * @returns FullRowCache, ColumnLookup
  */
 function postResults() {
+<<<<<<< HEAD
   postMessage({ fullRowCache }, [fullRowCache.positions.buffer, fullRowCache.column.buffer])
+=======
+  const buffers = [] as any
+  Object.values(fullRowCache).forEach(group => {
+    group.positions.forEach(p => buffers.push(p.buffer))
+  })
+  postMessage({ fullRowCache }, buffers)
+>>>>>>> upstream/master
 }
 
 async function step1fetchFile(filepath: string, fileSystem: FileSystemConfig) {
@@ -216,6 +221,7 @@ function step3parseCSVdata(sections: Uint8Array[]) {
   const decoder = new TextDecoder()
 
   try {
+<<<<<<< HEAD
     for (const section of sections) {
       const text = decoder.decode(section)
 
@@ -245,6 +251,44 @@ function step3parseCSVdata(sections: Uint8Array[]) {
           return results
         },
       })
+=======
+    for (let i = 0; i < sections.length; i++) {
+      _workers.push(new CoordinateWorker())
+      _workers[i].onmessage = (m: MessageEvent) => {
+        if (m.data.ready) {
+          _workers[i].postMessage(
+            {
+              id: i,
+              aggregations: allAggregations,
+              projection: proj,
+              header: headerColumns,
+              bytes: sections[i],
+            },
+            [sections[i].buffer]
+          )
+          return
+        }
+
+        if (m.data.error) {
+          postMessage({ error: m.data.error })
+          return
+        }
+        if (m.data.status) {
+          postMessage({ status: m.data.status })
+          return
+        }
+        if (m.data.fullRowCache) {
+          // close this worker
+          _workers[m.data.id].terminate()
+          _workers[m.data.id] = m.data.fullRowCache
+          // last worker? post results!
+          numActiveWorkers -= 1
+          if (!numActiveWorkers) {
+            aggregateResults()
+          }
+        }
+      }
+>>>>>>> upstream/master
     }
   } catch (e) {
     console.log('' + e)
@@ -265,3 +309,5 @@ function step3parseCSVdata(sections: Uint8Array[]) {
 
   postResults()
 }
+
+postMessage({ ready: true })

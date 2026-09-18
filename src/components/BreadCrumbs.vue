@@ -12,7 +12,9 @@
 
   .x-breadcrumbs(v-if="root && !isSplitMode")
     p(v-for="crumb,i in crumbs.slice(1)" :key="`${crumb.root}${crumb.subfolder}`")
-      a(:href="`#${BASE_URL}${crumb.root}/${crumb.subfolder}`") &nbsp;•&nbsp;{{ crumb.label }}
+      a(@click="clickedBreadcrumb(crumb)")
+        b(style="color: #a44; margin: 0 4px;") ›
+        span {{ crumb.label }}
 
 </template>
 
@@ -150,12 +152,18 @@ export default defineComponent({
     width: max-content;
   }
 
-  .cdrumb-link:hover {
-    color: var(--linkHover);
-    cursor: pointer;
+  a {
+    font-weight: 400;
+    color: #65d68f;
+  }
+  a:hover {
+    color: #a8ffc8;
   }
 }
 
 @media only screen and (max-width: 640px) {
+  .trail {
+    padding: 2px 0;
+  }
 }
 </style>

@@ -22,9 +22,21 @@
       .az-quick-item.flex-col(@click="go('/matrix')")
         .az-quick-icon: i.fa.fa-th
         .az-quick-label Matrix<br>viewer
+<<<<<<< HEAD
       .az-quick-item.flex-col(@click="go('/map')")
         .az-quick-icon: i.fa.fa-plus
         .az-quick-label Map builder<br>(beta)
+=======
+      //- .az-quick-item.flex-col(@click="go('/map')")
+      //-  . az-quick-icon: i.fa.fa-plus
+      //-   .az-quick-label Map builder<br>(beta)
+      .az-quick-item.flex1.spacer &nbsp;
+
+      settings-panel.settings-popup(v-if="showSettings" @close="showSettings=false")
+      .az-quick-item.flex-col(v-else @click="showSettings = !showSettings")
+        .az-quick-icon: i.fa.fa-cog
+        .az-quick-label Settings
+>>>>>>> upstream/master
 
 
     //- LOCAL FOLDERS ==================
@@ -37,9 +49,10 @@
         .az-cell.heading Description
         .az-row(v-for="row in localFileHandles" :key="row.key")
           .az-cell
+            i.fa.fa-times.zap-folder(@click="zapLocalFolder(row)" title="Remove this folder from list")
             i.fa.fa-folder.az-icon(style="color: #ea0;")
             a(@click="clickedBrowseChromeLocalFolder(row)") {{ row.handle.name}}
-          .az-cell Read-only browser access via Chrome/Edge
+          .az-cell Read-only browser access
 
       .az-local-folder-button
         b-button.config-sources(
@@ -56,7 +69,7 @@
       .az-cell.heading Description
       .az-row(v-for="project in mainRoots" :key="project.slug")
         //- .az-cell(style="padding-right: 0.5rem; font-size: 12px;"): i.fa.fa-network-wired
-        .az-cell
+        .az-cell.has-link
           i.fa.fa-sitemap.az-icon(style="color: #99cc00")
           a(@click="clickedOnFolder({root: project.slug})") {{ project.name}}
         .az-cell {{ project.description}}
@@ -86,7 +99,7 @@
     //- DOCUMENTATION ==================
     h4.az-title Documentation and Help
 
-    .az-quick-start-items.flex-row
+    .flex-row.az-quick-start-items
       a.az-quick-item.flex-col(href="https://simwrapper.github.io/docs" target="_blank")
         .az-quick-icon: i.fa.fa-book
         .az-quick-label Main<br>docs
@@ -307,7 +320,12 @@ export default defineComponent({
       return this.state.flaskConfig.tagline || 'Transport simulation data visualizer'
     },
   },
+
   methods: {
+    zapLocalFolder(row: any) {
+      this.clickedDelete(row)
+    },
+
     go(path: string) {
       const fullPath = `${BASE_URL}${path}`.replaceAll('//', '/')
       console.log({ fullPath })
@@ -615,12 +633,6 @@ h4 {
   border-bottom: 1px solid #66666640;
 }
 
-.fa-times {
-  opacity: 0;
-  float: right;
-  padding: 1px 1px;
-}
-
 .fa-times:hover {
   color: red;
 }
@@ -739,7 +751,40 @@ h4 {
   padding-bottom: 1rem;
 }
 
+<<<<<<< HEAD
+=======
+.spacer {
+  pointer-events: none;
+}
+
+.settings-popup {
+  float: right;
+  background-color: var(--bgBold);
+  padding: 0.5rem 1rem 0 1rem;
+  border: var(--borderThin);
+}
+
+.zap-folder {
+  opacity: 0;
+  margin: 0 6px 0 -16px;
+  transition: 0.15s ease-in-out;
+}
+
+.az-cell:hover .zap-folder {
+  opacity: 0.2;
+}
+
+.az-cell:hover .zap-folder:hover {
+  cursor: pointer;
+  opacity: 1;
+}
+
+>>>>>>> upstream/master
 @media only screen and (max-width: 640px) {
+  .is-chrome {
+    display: none;
+  }
+
   .az-grid {
     display: flex;
     flex-direction: column;
@@ -765,6 +810,16 @@ h4 {
     a {
       margin: 0 auto;
     }
+  }
+
+  .az-quick-start-items {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .az-grid a {
+    font-weight: 700 !important;
+    // padding: 0.25rem;
   }
 }
 </style>

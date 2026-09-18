@@ -158,9 +158,14 @@ export interface FileSystemConfig {
   handle?: FileSystemAPIHandle
   example?: boolean
   isGithub?: boolean
+<<<<<<< HEAD
   isAWS?: boolean
   omx?: boolean // supports OMX open matrix API - see https://github.com/simwrapper/omx-server
   authToken?: string
+=======
+  isZIB?: boolean
+  flask?: boolean // Flask filesystem supports OMX open matrix API - see https://github.com/simwrapper/omx-server
+>>>>>>> upstream/master
 }
 
 export interface VisualizationPlugin {
@@ -172,6 +177,9 @@ export interface VisualizationPlugin {
 export interface DirectoryEntry {
   files: string[]
   dirs: string[]
+  // for LakeFS:
+  fileLinks?: string[]
+  // for Chrome Files
   handles: { [name: string]: FileSystemAPIHandle }
   html?: string
 }
