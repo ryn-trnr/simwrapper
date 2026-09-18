@@ -92,7 +92,7 @@
       )
 
       //- background-map-on-top(v-if="isMapReady")
-zoom-buttons(corner="top-left" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
+      zoom-buttons(corner="top-left" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
 
       //- .zone-announce-area.flex-col
       //-   h2  {{ this.mapConfig.isRowWise ? 'Row ' : 'Column ' }} {{ this.activeZone }}

@@ -1,4 +1,4 @@
-﻿<template lang="pug">
+<template lang="pug">
 .datasets-panel
   .loading-panel(v-if="isLoading")
     .thing

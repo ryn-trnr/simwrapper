@@ -123,20 +123,6 @@ export default defineComponent({
           }
     },
 
-isDark(): any {
-      return this.theme == 'dark'
-        ? {
-            backgroundColor: '#7957d5',
-            color: 'white',
-            borderColor: '#aaa',
-          }
-        : {
-            backgroundColor: 'unset',
-            color: '#222',
-            borderColor: '#aaa',
-          }
-    },
-
     isNormal(): any {
       return this.state.gamepad == 1
         ? {
