@@ -6,7 +6,6 @@
       .top-banner.flex-row
         .flex1
           img(width=256 src="@/assets/simwrapper-logo/SW_logo_yellow.png")
-
       .tagline {{ tagline }}
 
   .splash-scroll-area.white-text
@@ -22,11 +21,6 @@
       .az-quick-item.flex-col(@click="go('/matrix')")
         .az-quick-icon: i.fa.fa-th
         .az-quick-label Matrix<br>viewer
-<<<<<<< HEAD
-      .az-quick-item.flex-col(@click="go('/map')")
-        .az-quick-icon: i.fa.fa-plus
-        .az-quick-label Map builder<br>(beta)
-=======
       //- .az-quick-item.flex-col(@click="go('/map')")
       //-  . az-quick-icon: i.fa.fa-plus
       //-   .az-quick-label Map builder<br>(beta)
@@ -36,7 +30,6 @@
       .az-quick-item.flex-col(v-else @click="showSettings = !showSettings")
         .az-quick-icon: i.fa.fa-cog
         .az-quick-label Settings
->>>>>>> upstream/master
 
 
     //- LOCAL FOLDERS ==================
@@ -223,14 +216,14 @@ const i18n = {
 
 import { defineComponent } from 'vue'
 import { get, set, clear } from 'idb-keyval'
-
-import globalStore from '@/store'
-import FileSystemProjects from '@/components/FileSystemProjects.vue'
-import InfoBottom from '@/assets/info-bottom.md'
-import { FavoriteLocation, FileSystemConfig } from '@/Globals'
-import fileSystems, { addLocalFilesystem } from '@/fileSystemConfig'
 import Markdown from 'markdown-it'
 
+import globalStore from '@/store'
+import { FavoriteLocation, FileSystemConfig } from '@/Globals'
+import FileSystemProjects from '@/components/FileSystemProjects.vue'
+import fileSystems, { addLocalFilesystem } from '@/fileSystemConfig'
+import SettingsPanel from '@/layout-manager/SettingsPanel.vue'
+import InfoBottom from '@/assets/info-bottom.md'
 import SCREENSHOT_BERLIN from '@/assets/screenshots/berlin.jpg'
 import SIMWRAPPER_FULL_LOGO from '@/assets/simwrapper-logo/SW_logo_white.png'
 
@@ -264,7 +257,7 @@ const logos = [
 export default defineComponent({
   name: 'SplashPage',
   i18n,
-  components: { FileSystemProjects, InfoBottom },
+  components: { FileSystemProjects, InfoBottom, SettingsPanel },
   data: () => {
     return {
       state: globalStore.state,
@@ -275,8 +268,10 @@ export default defineComponent({
       },
       skimwrapper: `${BASE_URL}matrix`,
       git: GIT,
+      showSettings: false,
     }
   },
+
   computed: {
     allLogos(): any[] {
       return logos.map(p => {
@@ -751,8 +746,6 @@ h4 {
   padding-bottom: 1rem;
 }
 
-<<<<<<< HEAD
-=======
 .spacer {
   pointer-events: none;
 }
@@ -779,7 +772,6 @@ h4 {
   opacity: 1;
 }
 
->>>>>>> upstream/master
 @media only screen and (max-width: 640px) {
   .is-chrome {
     display: none;

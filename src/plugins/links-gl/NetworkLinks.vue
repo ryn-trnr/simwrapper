@@ -19,9 +19,10 @@
         :projection="vizDetails.projection"
         :mapIsIndependent="vizDetails.mapIsIndependent"
         :bgLayers="backgroundLayers"
+        :show3dBuildings="show3dBuildings"
     )
 
-    zoom-buttons(v-if="!thumbnail")
+    zoom-buttons(v-if="!thumbnail" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
     //- drawing-tool(v-if="!thumbnail")
 
     //- color/width/etc panel
@@ -211,6 +212,8 @@ const MyComponent = defineComponent({
         },
       },
 
+      show3dBuildings: false,
+
       currentUIFilterDefinitions: {} as any,
       datasets: {} as { [id: string]: DataTable },
       isButtonActiveColumn: false,
@@ -222,7 +225,7 @@ const MyComponent = defineComponent({
       geojsonData: {
         source: new Float32Array(),
         dest: new Float32Array(),
-        linkIds: [] as any[],
+        linkId: [] as any[],
         projection: '',
       },
       fixedColors: ['#4e79a7'],
@@ -344,6 +347,7 @@ const MyComponent = defineComponent({
       if (this.config) {
         this.validateYAML()
         this.vizDetails = Object.assign({}, emptyState, this.config)
+        this.sync3dBuildingsSetting()
         return
       }
 
@@ -353,7 +357,7 @@ const MyComponent = defineComponent({
       }
 
       // is this a bare network file? - build vizDetails manually
-      if (/(shp|xml|geojson|geo\.json)(|\.gz)$/.test(filename)) {
+      if (/(shp|xml|geojson|geo\.json)(\.gz)?(\.zst)?$/.test(filename)) {
         const title = 'Network: ' + this.myState.yamlConfig // .substring(0, 7 + this.myState.yamlConfig.indexOf('network'))
 
         this.vizDetails = Object.assign({}, this.vizDetails, {
@@ -365,6 +369,7 @@ const MyComponent = defineComponent({
 
       const t = this.vizDetails.title ? this.vizDetails.title : filename || 'Network Links'
       this.$emit('title', t)
+      this.sync3dBuildingsSetting()
     },
 
     async loadStandaloneYamlConfig() {
@@ -437,6 +442,17 @@ const MyComponent = defineComponent({
 
     setVizDetails() {
       this.vizDetails = Object.assign({}, this.vizDetails, this.standaloneYAMLconfig)
+      this.sync3dBuildingsSetting()
+    },
+
+    sync3dBuildingsSetting() {
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
+    },
+
+    toggle3dBuildings() {
+      this.show3dBuildings = !this.show3dBuildings
     },
 
     async buildThumbnail() {
@@ -703,11 +719,7 @@ const MyComponent = defineComponent({
           this.updateStatus
         )
 
-<<<<<<< HEAD
-        this.numLinks = network.linkIds.length
-=======
         this.numLinks = network.linkId.length
->>>>>>> upstream/master
         this.geojsonData = network as any
 
         // Handle Atlantis: no long/lat coordinates
@@ -764,8 +776,8 @@ const MyComponent = defineComponent({
       // Create a LOOKUP array which links this CSV data to the network links
       // loop through all network links, we need the CSV row for each link.
       const getCsvRowNumberFromLinkRowNumber: number[] = []
-      for (let linkRow = 0; linkRow < this.geojsonData.linkIds.length; linkRow++) {
-        const linkId = this.geojsonData.linkIds[linkRow]
+      for (let linkRow = 0; linkRow < this.geojsonData.linkId.length; linkRow++) {
+        const linkId = this.geojsonData.linkId[linkRow]
         const csvRow = tempMapLinkIdToCsvRow[linkId]
         if (csvRow !== undefined) getCsvRowNumberFromLinkRowNumber[linkRow] = csvRow
       }
@@ -781,7 +793,7 @@ const MyComponent = defineComponent({
     },
 
     generateWidthArray() {
-      const numLinks = this.geojsonData.linkIds.length
+      const numLinks = this.geojsonData.linkId.length
       const widths = new Float32Array(numLinks)
 
       const widthValues = this.csvWidth?.dataTable[this.csvWidth.activeColumn]?.values
@@ -839,7 +851,7 @@ const MyComponent = defineComponent({
         ? scaleOrdinal().range(colorsAsRGB)
         : scaleThreshold().range(colorsAsRGB).domain(domain)
 
-      const numLinks = this.geojsonData.linkIds.length
+      const numLinks = this.geojsonData.linkId.length
       const colors = new Uint8Array(4 * numLinks)
 
       const colorPaleGrey = globalStore.state.isDarkMode ? [80, 80, 80, 96] : [212, 212, 212, 40]

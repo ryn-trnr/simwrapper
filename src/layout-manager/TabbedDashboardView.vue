@@ -3,40 +3,18 @@
 
   p.load-error(v-show="loadErrorMessage" @click="authorizeAfterError"): b {{ loadErrorMessage }}
 
-  .tabholder(v-if="isShowingBreadcrumbs && !isMultipanel && !isZoomed" :style="dashWidthCalculator")
-    .tab-holder-container.flex-col.white-text
-      .project-path.flex-row(v-show="!header")
-          bread-crumbs.breadcrumbs(
-              :root="root"
-              :subfolder="xsubfolder"
-              @navigate="onNavigate"
-              @crumbs="updateCrumbs"
-          )
-          p.favorite-icon(v-if="!header"
-              @click="clickedFavorite"
-              title="Favorite"
-              :class="{'is-favorite': isFavorite}"
-            ): i.fa.fa-star
+  .project-header(v-if="header" v-html="header")
 
-      .project-header(v-if="header" v-html="header")
-
+  //-- Main area --------------
   .dashboard-finder(:class="{isMultipanel, isZoomed}")
-<<<<<<< HEAD
-    ul.dashboard-right-sections(v-show="!isZoomed && Object.keys(dashboards).length > 1")
-=======
 
     //-- Vertical list of dashboard tabs -- one for each dashboard-*.yaml
     ul.dashboard-right-sections(v-show="!isZoomed && Object.keys(dashboards).length > 1 && !isMobile")
->>>>>>> upstream/master
       li.tab-list(v-for="tab,index in Object.keys(dashboards)" :key="tab"
         :class="{'is-active': tab===activeTab, 'is-not-active': tab!==activeTab}"
         :style="{opacity: tab===activeTab ? 1.0 : 0.75}"
         @click="switchLeftTab(tab,index)"
       )
-<<<<<<< HEAD
-        a(v-if="dashboards[tab].header" :href="`#${$route.path}?tab=${index+1}`") {{ dashboards[tab].header.tab }}
-        //- a(v-if="dashboards[tab].header" @click="switchLeftTab(tab,index)") {{ dashboards[tab].header.tab }}
-=======
         a(v-if="dashboards[tab].header"
           @click="switchLeftTab(tab,index)"
         ) {{ dashboards[tab].header.tab }}
@@ -44,7 +22,7 @@
     //- mobile: dashboard dropdown-button
     .dashboard-mobile-section(v-show="!isZoomed && Object.keys(dashboards).length > 1 && isMobile")
       .dropdown
-        b-button.dropbtn(@click="dropDownClicked()") {{ dashboards[activeTab].header.tab || 'Dashboards' }}
+        b-button.dropbtn(@click="dropDownClicked()") {{ activeTabLabel }}
           i.fa.fa-caret-down
 
         .dropdown-content(v-if="showDropDown")
@@ -54,8 +32,8 @@
             @click="switchLeftTab(tab,index)"
           )
             a(v-if="dashboards[tab].header" @click="switchLeftTab(tab,index)") {{ dashboards[tab].header.tab }}
->>>>>>> upstream/master
 
+    //-- The actual dashboard for this tab (if there is one) ------------------
     .dashboard-content(
       v-if="dashboardTabWithDelay && dashboardTabWithDelay !== 'FILE__BROWSER' && dashboards[dashboardTabWithDelay] && dashboards[dashboardTabWithDelay].header.tab !== '...'"
       :class="{'is-breadcrumbs-hidden': !isShowingBreadcrumbs && !isZoomed}"
@@ -72,6 +50,7 @@
         @layoutComplete="handleLayoutComplete"
       )
 
+    //-- No dashboard? Show folder browser ---------
     folder-browser.dashboard-folder-browser(v-if="dashboardTabWithDelay && dashboardTabWithDelay === 'FILE__BROWSER'"
       :root="root"
       :xsubfolder="xsubfolder"
@@ -124,7 +103,7 @@ export default defineComponent({
       allConfigFiles: { dashboards: {}, topsheets: {}, vizes: {}, configs: {} } as YamlConfigs,
       crumbs: [] as any,
       customCSS: '',
-      dashboards: [] as any[],
+      dashboards: {} as Record<string, any>,
       dashboardDataManager: null as DashboardDataManager | null,
       dashboardTabWithDelay: '',
       finalFolder: '',
@@ -158,6 +137,12 @@ export default defineComponent({
     }
   },
   computed: {
+    activeTabLabel(): string {
+      const dashboard = (this.dashboards as any)?.[this.activeTab]
+      const label = dashboard?.header?.tab
+      if (typeof label === 'string' && label.length) return label
+      return 'Dashboards'
+    },
     fileApi(): HTTPFileSystem {
       return new HTTPFileSystem(this.fileSystem, globalStore)
     },
@@ -313,13 +298,17 @@ export default defineComponent({
         // // Start on correct tab
         const dashboardKeys = Object.keys(this.dashboards)
         if (this.$route.query.tab) {
-          try {
-            const userSupplied = parseInt('' + this.$route.query.tab) - 1
-            const userTab = dashboardKeys[userSupplied]
-            this.activeTab = userTab || dashboardKeys[0]
-          } catch (e) {
-            // user spam; just use first tab
-            this.activeTab = dashboardKeys[0]
+          if (this.$route.query.tab === 'files') {
+            this.activeTab = 'FILE__BROWSER'
+          } else {
+            try {
+              const userSupplied = parseInt('' + this.$route.query.tab) - 1
+              const userTab = dashboardKeys[userSupplied]
+              this.activeTab = userTab || dashboardKeys[0]
+            } catch (e) {
+              // user spam; just use first tab
+              this.activeTab = dashboardKeys[0]
+            }
           }
         } else {
           this.activeTab = dashboardKeys[0]
@@ -364,7 +353,7 @@ export default defineComponent({
           }
 
           // always reveal quickview bar unless told not to
-          if (yaml.hideLeftBar === true) {
+          if (yaml.hideLeftBar || yaml.hideSideBar) {
             this.$store.commit('setShowLeftBar', false)
           }
 
@@ -384,8 +373,13 @@ export default defineComponent({
           }
 
           // Breadcrumb-Bar. Delicious!
-          this.isShowingBreadcrumbs = !yaml.hideBreadcrumbs
-          // if (yaml.hideBreadcrumbs) this.isShowingBreadcrumbs = false
+          if (yaml.hideBreadcrumbs || yaml.hideBreadCrumbs) {
+            this.$store.commit('setShowBreadcrumbs', false)
+            this.isShowingBreadcrumbs = false
+          } else {
+            this.$store.commit('setShowBreadcrumbs', true)
+            this.isShowingBreadcrumbs = true
+          }
 
           // TOP Nav Bar -----------------------------------
           if (yaml.topNavBar) {
@@ -551,7 +545,7 @@ export default defineComponent({
 
       this.header = ''
       this.footer = ''
-      this.dashboards = []
+      this.dashboards = {}
       this.pageHeader = this.getPageHeader()
 
       // this happens async
@@ -690,7 +684,6 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   background-image: var(--bgSplashPage);
-  flex-direction: column;
 }
 
 .centered-vessel.wiide {
@@ -707,17 +700,10 @@ export default defineComponent({
   border-bottom-color: var(--bgDashboard);
 }
 
-<<<<<<< HEAD
-.tabholder {
-  z-index: 50;
-  padding: 0.5rem 0rem 0.5rem 0rem;
-}
-=======
 // .tabholder {
 //   // z-index: 50;
 //   // padding: 0.5rem 0rem 0.5rem 0rem;
 // }
->>>>>>> upstream/master
 
 .tab-holder-container {
   margin: 0 $cardSpacing;
@@ -741,13 +727,13 @@ li.is-not-active b a {
   display: flex;
   flex: 1;
   flex-direction: row;
-  padding: 0 0.25rem; // $cardSpacing;
+  padding: 0.5rem 0.25rem 0 0.25rem; // $cardSpacing;
   position: relative;
   overflow-y: auto;
 }
 
 .dashboard-finder.isMultipanel {
-  margin: 0 0.5rem;
+  margin: 0 0rem;
 }
 
 .dashboard-finder.isZoomed {
@@ -758,7 +744,7 @@ li.is-not-active b a {
 .dashboard-right-sections {
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 1.5rem 2rem 0.5rem;
+  padding: 1.25rem 2rem 2rem 1rem;
 }
 
 .dashboard-content {
@@ -771,8 +757,6 @@ li.is-not-active b a {
 }
 
 .dashboard-folder-browser {
-  // margin: 2rem 2rem 1rem 1rem;
-  // padding-top: 1rem;
   flex: 1;
 }
 
@@ -831,7 +815,7 @@ li.is-not-active b a {
 .project-header {
   margin-bottom: 1rem;
   color: var(--text);
-  padding: 1rem 0.5rem;
+  padding: 0rem 1rem;
 
   :deep(h1) {
     font-size: 3rem;

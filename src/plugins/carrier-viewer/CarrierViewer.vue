@@ -22,9 +22,10 @@
                   :numSelectedTours="selectedTours.length"
                   :onClick="handleClick"
                   :projection="vizDetails.projection"
-                  :services="vizDetails.services || false")
+                  :services="vizDetails.services || false"
+                  :show3dBuildings="show3dBuildings")
 
-      ZoomButtons(v-if="!thumbnail" corner="top-left")
+      ZoomButtons(v-if="!thumbnail" corner="top-left" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
       .xmessage(v-if="myState.statusMessage") {{ myState.statusMessage }}
 
     .dragger(
@@ -36,7 +37,7 @@
     .right-panel(:darkMode="true" :style="{width: `${legendSectionWidth}px`}")
       h3(style="margin-left: 0.25rem" v-if="carriers.length") {{ $t('carriers') }}
 
-      .carrier-list
+      .carrier-list(data-testid="carrier-list")
         .carrier(v-for="carrier in carriers" :key="carrier.$id"
                  :class="{selected: carrier.$id===selectedCarrier}"
                  @click="handleSelectCarrier(carrier)")
@@ -158,15 +159,10 @@ import HTTPFileSystem from '@/js/HTTPFileSystem'
 import LegendColors from '@/components/LegendColors.vue'
 import ZoomButtons from '@/components/ZoomButtons.vue'
 import { gUnzip, parseXML, findMatchingGlobInFiles, arrayBufferToBase64 } from '@/js/util'
-
+import DashboardDataManager from '@/js/DashboardDataManager'
 import RoadNetworkLoader from '@/workers/RoadNetworkLoader.worker.ts?worker'
-<<<<<<< HEAD
-
-import TourViz from './TourViz'
-=======
 import DeckMapComponent from './MapComponent.vue'
 import BackgroundLayers from '@/js/BackgroundLayers'
->>>>>>> upstream/master
 
 import {
   FileSystem,
@@ -184,7 +180,7 @@ import {
 interface NetworkLinks {
   source: Float32Array
   dest: Float32Array
-  linkIds: any[]
+  linkId: any[]
   projection: String
 }
 
@@ -219,8 +215,9 @@ const CarrierPlugin = defineComponent({
     yamlConfig: String,
     config: Object as any,
     thumbnail: Boolean,
+    datamanager: { type: Object as PropType<DashboardDataManager> },
   },
-  data: () => {
+  data() {
     return {
       linkLayerId: Math.floor(1e12 * Math.random()),
 
@@ -242,6 +239,8 @@ const CarrierPlugin = defineComponent({
         center: null as any,
       },
 
+      show3dBuildings: false,
+
       myState: {
         statusMessage: '',
         isRunning: false,
@@ -251,8 +250,6 @@ const CarrierPlugin = defineComponent({
         data: [] as any[],
       },
 
-<<<<<<< HEAD
-=======
       isDraggingDivider: 0,
       dragStartWidth: 250,
       legendSectionWidth: 275,
@@ -261,7 +258,6 @@ const CarrierPlugin = defineComponent({
       // in single-view mode, in which case we need to create one for ourselves
       myDataManager: this.datamanager || new DashboardDataManager(this.root, this.subfolder),
 
->>>>>>> upstream/master
       searchTerm: '',
       searchEnabled: false,
 
@@ -883,6 +879,7 @@ const CarrierPlugin = defineComponent({
       // are we in a dashboard?
       if (this.config) {
         this.vizDetails = Object.assign({}, this.config)
+        this.sync3dBuildingsSetting()
         return
       }
 
@@ -896,6 +893,7 @@ const CarrierPlugin = defineComponent({
 
           const text = await this.fileApi.getFileText(filename)
           this.vizDetails = YAML.parse(text)
+          this.sync3dBuildingsSetting()
           if (this.vizDetails.title) {
             this.$emit('title', this.vizDetails.title)
           }
@@ -944,11 +942,22 @@ const CarrierPlugin = defineComponent({
         thumbnail: '',
         services: false,
       }
+      this.sync3dBuildingsSetting()
 
       const t = 'Carrier Explorer'
       this.$emit('title', t)
 
       this.buildThumbnail()
+    },
+
+    sync3dBuildingsSetting() {
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
+    },
+
+    toggle3dBuildings() {
+      this.show3dBuildings = !this.show3dBuildings
     },
 
     async setMapCenter() {
@@ -1061,7 +1070,7 @@ const CarrierPlugin = defineComponent({
 
       // sort by '$id' attribute
       const carrierList = root.carriers.carrier.sort((a: any, b: any) => naturalSort(a.$id, b.$id))
-      console.log(carrierList)
+      // console.log(carrierList)
 
       return carrierList
     },
@@ -1069,10 +1078,17 @@ const CarrierPlugin = defineComponent({
     async loadNetwork() {
       this.myState.statusMessage = 'Loading network...'
 
-      if (this.vizDetails.network.indexOf('.xml.') > -1) {
-        // load matsim xml file
-        const path = `${this.myState.subfolder}/${this.vizDetails.network}`
-        const net = await this.fetchNetwork(path, {})
+      if (
+        this.vizDetails.network.indexOf('.xml.') > -1 ||
+        this.vizDetails.network.endsWith('.avro')
+      ) {
+        const net = (await this.myDataManager.getRoadNetwork(
+          this.vizDetails.network,
+          this.subfolder,
+          this.vizDetails,
+          null,
+          true
+        )) as any
 
         this.vizDetails.projection = '' + net.projection
 
@@ -1080,7 +1096,7 @@ const CarrierPlugin = defineComponent({
         this.myState.statusMessage = 'Building network link table'
         const links: { [id: string]: number[] } = {}
 
-        net.linkIds.forEach((linkId: string, i: number) => {
+        net.linkId.forEach((linkId: string, i: number) => {
           links[linkId] = [
             net.source[i * 2],
             net.source[i * 2 + 1],
@@ -1179,7 +1195,7 @@ const CarrierPlugin = defineComponent({
 
         let content = ''
 
-        if (filepath.endsWith('xml') || filepath.endsWith('gz')) {
+        if (filepath.endsWith('xml') || filepath.endsWith('gz') || filepath.endsWith('zst')) {
           const blob = await this.fileApi.getFileBlob(filepath)
           const buffer = await blob.arrayBuffer()
           // recursively gunzip until it can gunzip no more:

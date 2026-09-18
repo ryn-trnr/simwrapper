@@ -6,6 +6,7 @@
 import { XMLParser } from 'fast-xml-parser'
 import reproject from 'reproject'
 import * as shapefile from 'shapefile'
+import * as ZStd from 'zstd-wasm-decoder'
 
 import Coords from '@/js/Coords'
 import HTTPFileSystem from '@/js/HTTPFileSystem'
@@ -414,7 +415,8 @@ async function memorySafeXMLParser(rawData?: Uint8Array, options?: any) {
       links.length.buffer,
     ])
   } else {
-    const links = { source, dest, linkIds, projection: coordinateReferenceSystem }
+const links = { source, dest, linkId: linkIds, projection: coordinateReferenceSystem }
+    // console.log({ links })
     postMessage({ links }, [links.source.buffer, links.dest.buffer])
   }
 }

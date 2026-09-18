@@ -98,6 +98,7 @@ export default defineComponent({
           highPrecision: true,
           subfolder: this.subfolder,
         })
+        if (dataset.comments?.length) this.$emit('comments', dataset.comments)
 
         // no filter? we are done
         if (!this.config.filters) return dataset

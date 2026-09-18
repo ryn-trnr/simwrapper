@@ -17,11 +17,12 @@
                 :viewId = "viewId"
                 :onClick = "handleClick"
                 :bgLayers="backgroundLayers"
+                :show3dBuildings="show3dBuildings"
   )
 
   h3.loadmsg(v-if="!isLoaded") {{ myState.statusMessage }}
 
-  zoom-buttons(v-if="!thumbnail" corner="top-left")
+  zoom-buttons(v-if="!thumbnail" corner="top-left" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
 
   .right-side(v-if="isLoaded && !thumbnail")
     collapsible-panel(direction="right")
@@ -192,6 +193,8 @@ const MyComponent = defineComponent({
         theme: '',
         leftside: false,
       },
+
+      show3dBuildings: false,
 
       myState: {
         statusMessage: '',
@@ -395,7 +398,18 @@ const MyComponent = defineComponent({
       const t = this.vizDetails.title ? this.vizDetails.title : 'Agent Animation'
       this.$emit('title', t)
 
+      this.sync3dBuildingsSetting()
       await this.buildThumbnail()
+    },
+
+    sync3dBuildingsSetting() {
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
+    },
+
+    toggle3dBuildings() {
+      this.show3dBuildings = !this.show3dBuildings
     },
 
     async buildThumbnail() {
@@ -682,7 +696,7 @@ const MyComponent = defineComponent({
           )
           trips = json.trips
           drtRequests = json.drtRequests
-        } else if (this.vizDetails.drtTrips.endsWith('gz')) {
+        } else if (/.*(\.gz)?(\.zst)?$/.test(this.vizDetails.drtTrips)) {
           const blob = await this.fileApi.getFileBlob(
             this.myState.subfolder + '/' + this.vizDetails.drtTrips
           )

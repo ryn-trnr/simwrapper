@@ -2,12 +2,6 @@
 .dashboard(:class="{wiide, 'is-panel-narrow': isPanelNarrow, 'is-fullscreen-dashboard': isFullScreenDashboard }" :id="viewId")
   .dashboard-content(:class="{wiide, 'is-fullscreen-dashboard': isFullScreenDashboard}" :style="dashWidthCalculator")
 
-<<<<<<< HEAD
-    .dashboard-header(v-if="!fullScreenCardId && (title + description)"
-      :class="{wiide, 'is-panel-narrow': isPanelNarrow}")
-      h2 {{ title }}
-      p {{ description }}
-=======
     .dashboard-header.flex-row(v-if="!fullScreenCardId && (title + description)"
       :class="{wiide, 'is-panel-narrow': isPanelNarrow}"
     )
@@ -19,7 +13,6 @@
           :class="{'is-favorite': isFavorite}"
           @click="clickedFavorite"
         ): i.fa.fa-star
->>>>>>> upstream/master
 
     .tabs.is-centered(v-if="subtabs.length")
       ul.tab-row
@@ -47,25 +40,22 @@
             h3 {{ card.title }}
             p(v-if="card.description") {{ card.description }}
 
-          //- zoom button
+          //- info/zoom buttons
           .header-buttons
             button.button.is-small.is-white(
-              v-if="card.info"
+              v-show="card.info || hasCardComments(card)"
               @click="handleToggleInfoClick(card)"
               :title="infoToggle[card.id] ? 'Hide Info':'Show Info'"
             )
-              i.fa.fa-info-circle
+              i.fa.fa-info-circle(v-if="!infoToggle[card.id]" style="font-size: 1rem")
+              i.fa.fa-times(v-if="infoToggle[card.id]" style="font-size: 1rem")
+              | &nbsp;Info
 
             button.button.is-small.is-white(
               @click="toggleZoom(card)"
               :title="fullScreenCardId ? 'Restore':'Enlarge'"
             )
               i.fa.fa-expand
-
-        //- info contents
-        .info(v-show="infoToggle[card.id]")
-          p
-          p {{ card.info }}
 
         //- card contents
         .spinner-box(v-if="getCardComponent(card)"
@@ -86,10 +76,17 @@
             :cardTitle="card.title"
             :allConfigFiles="allConfigFiles"
             @isLoaded="handleCardIsLoaded(card)"
+            @comments="handleComments(card, $event)"
             @dimension-resizer="setDimensionResizer"
             @titles="setCardTitles(card, $event)"
             @error="setCardError(card, $event)"
           )
+
+          //- info contents
+          .xcardinfo-block(v-show="infoToggle[card.id]" v-html="mdInfo(card)")
+
+          //- .card-comments(v-if="card.comments" v-html="card.comments")
+
           .error-text(v-if="card.errors.length")
             span.clear-error(@click="card.errors=[]") &times;
             p(v-for="err,i in card.errors" :key="i") {{ err }}
@@ -100,16 +97,13 @@
 import Vue, { defineComponent } from 'vue'
 import type { PropType } from 'vue'
 
+import Markdown from 'markdown-it'
 import YAML from 'yaml'
 
 import globalStore from '@/store'
-<<<<<<< HEAD
-import { FileSystemConfig, Status, YamlConfigs } from '@/Globals'
-=======
 import { sleep } from '@/js/util'
 
 import { FavoriteLocation, FileSystemConfig, Status, YamlConfigs } from '@/Globals'
->>>>>>> upstream/master
 import HTTPFileSystem from '@/js/HTTPFileSystem'
 
 import TopSheet from '@/components/TopSheet/TopSheet.vue'
@@ -127,6 +121,12 @@ chartTypes.forEach((key: any) => {
   namedCharts[`card-${key}`] = panelLookup[key] // key // charts[key] as any
   // //@ts-ignore
   // if (plotlyCharts[key]) plotlyChartTypes[key] = true
+})
+
+const MarkdownRenderer = new Markdown({
+  html: false,
+  linkify: true,
+  breaks: true,
 })
 
 export default defineComponent({
@@ -183,6 +183,16 @@ export default defineComponent({
     fileApi(): HTTPFileSystem {
       return new HTTPFileSystem(this.fileSystemConfig)
     },
+    isFavorite(): any {
+      let key = this.root
+      if (this.xsubfolder) key += `/${this.xsubfolder}`
+      if (key.endsWith('/')) key = key.substring(0, key.length - 1)
+
+      const indexOfPathInFavorites = globalStore.state.favoriteLocations.findIndex(
+        f => key == f.fullPath
+      )
+      return indexOfPathInFavorites > -1
+    },
   },
 
   watch: {
@@ -196,13 +206,70 @@ export default defineComponent({
   },
 
   methods: {
+    hasCardComments(card: any): string {
+      if (!card.comments) return ''
+      return Array.isArray(card.comments)
+        ? card.comments.join('')
+        : Object.values(card.comments).join('')
+    },
+
+    mdInfo(card: { info: any; comments: any }) {
+      let info = ''
+      if (card.info) {
+        const html = MarkdownRenderer.render(card.info)
+        info += html
+      }
+
+      if (card.comments) {
+        if (info) info += '\n<hr>\n'
+        Object.values(card.comments).forEach((comments: any, index) => {
+          if (!comments) return
+          if (index > 0) info += '\n<hr>\n'
+          const html = MarkdownRenderer.render(comments)
+          info += html
+        })
+      }
+      return info
+    },
+
+    clickedFavorite() {
+      let hint = `${this.root}/${this.xsubfolder}`
+      let finalFolder = this.xsubfolder || this.root
+      // remove current folder from subfolder
+      const lastSlash = hint.lastIndexOf('/')
+      if (lastSlash > -1) {
+        finalFolder = hint.substring(lastSlash + 1)
+        hint = hint.substring(0, lastSlash)
+      }
+
+      let fullPath = `${this.root}/${this.xsubfolder}`
+      if (fullPath.endsWith('/')) fullPath = fullPath.substring(0, fullPath.length - 1)
+
+      const favorite: FavoriteLocation = {
+        root: this.root,
+        subfolder: this.xsubfolder,
+        label: finalFolder,
+        fullPath,
+        hint,
+      }
+
+      this.$store.commit(this.isFavorite ? 'removeFavorite' : 'addFavorite', favorite)
+    },
+
     /**
      * This only gets triggered when a topsheet has some titles.
      * Remove the dashboard titles and use the ones from the topsheet.
      */
     setCardTitles(card: any, event: any) {
-      card.title = event
-      card.description = ''
+      if (!card || !event) return
+
+      if ('string' == typeof event) {
+        card.title = event
+        card.description = ''
+      } else {
+        if (event.title) card.title = event.title
+        if (event.description) card.description = event.description
+      }
     },
 
     setCardError(card: any, event: any) {
@@ -607,6 +674,20 @@ export default defineComponent({
       return tag
     },
 
+    handleComments(card: any, comments: string[] | { filename: string; comments: string[] }) {
+      if (!card.comments) card.comments = {} as { [filename: string]: string[] }
+      let filename = Array.isArray(comments) ? '' : comments.filename
+      let commentStrings = Array.isArray(comments) ? comments : comments.comments
+      let mdRaw = ''
+      if (commentStrings?.length) {
+        mdRaw = commentStrings
+          .map(c => c.slice(1).trim())
+          .filter(c => !c.startsWith('EPSG:')) // hide EPSG codez which are special
+          .join('\n')
+      }
+      card.comments[filename] = mdRaw
+    },
+
     async handleCardIsLoaded(card: any) {
       card.isLoaded = true
       this.opacity[card.id] = 1.0
@@ -706,6 +787,7 @@ export default defineComponent({
   .dashboard-content {
     max-width: $dashboardWidth;
     margin: 0 auto 0 auto;
+    margin-top: 1.25rem;
   }
 
   .dashboard-content.wiide {
@@ -714,7 +796,7 @@ export default defineComponent({
 }
 
 .dashboard-header {
-  margin: 1rem 3rem 1rem 0rem;
+  margin: 0.25rem 2rem 1rem 0rem;
 
   h2 {
     line-height: 2.1rem;
@@ -891,6 +973,22 @@ li.is-not-active b a {
   }
 }
 
+.card-comments {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+.xcardinfo-block {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+}
+
 .clear-error {
   float: right;
   font-weight: bold;
@@ -903,8 +1001,6 @@ li.is-not-active b a {
   color: red;
   background-color: #88888833;
 }
-<<<<<<< HEAD
-=======
 
 .favorite-icon {
   margin: auto -0.5rem auto 1rem;
@@ -932,5 +1028,4 @@ li.is-not-active b a {
     margin-bottom: 0.5rem !important;
   }
 }
->>>>>>> upstream/master
 </style>

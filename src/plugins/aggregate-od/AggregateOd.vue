@@ -1,7 +1,7 @@
 <template lang="pug">
 .mycomponent(:id="containerId")
 
-  zoom-buttons.zoom-buttons(v-if="!thumbnail" corner="top-left")
+  zoom-buttons.zoom-buttons(v-if="!thumbnail" corner="top-left" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
 
   .map-container
     .mymap(:id="mapId")
@@ -115,6 +115,7 @@ import { findMatchingGlobInFiles } from '@/js/util'
 
 import { ColorScheme, FileSystem, FileSystemConfig, Status, VisualizationPlugin } from '@/Globals'
 import HTTPFileSystem from '@/js/HTTPFileSystem'
+import { disable3DBuildings, enable3DBuildings } from '@/js/maplibre/threeDBuildings'
 
 import CSVWorker from './AggregateDatasetStreamer.worker.ts?worker'
 
@@ -259,6 +260,7 @@ const Component = defineComponent({
       resizer: null as ResizeObserver | null,
       isMapMoving: false,
       isDarkMode: false,
+      show3dBuildings: false,
 
       csvWorker: null as Worker | null,
     }
@@ -304,6 +306,15 @@ const Component = defineComponent({
     },
   },
   methods: {
+    updateTestData() {
+      //@ts-ignore
+      window.__testdata__ = {
+        centroids: this.centroidSource?.features,
+        spiderLinks: this.spiderLinkFeatureCollection?.features,
+        geojson: this.geojson?.features,
+      }
+    },
+
     setupResizer() {
       this.resizer = new ResizeObserver(() => {
         // if (this.mymap) this.mymap.resize()
@@ -355,14 +366,21 @@ const Component = defineComponent({
         }
       }
 
-      this.$emit('title', this.vizDetails.title)
+      this.$emit('title', this.vizDetails)
 
       this.scaleFactor = this.vizDetails.scaleFactor
       this.projection = this.vizDetails.projection
       this.mapIsIndependent = !!this.vizDetails.mapIsIndependent
       this.idColumn = this.vizDetails.idColumn ? this.vizDetails.idColumn : 'id'
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
 
       nprogress.done()
+    },
+
+    toggle3dBuildings() {
+      this.show3dBuildings = !this.show3dBuildings
     },
 
     validateYAML() {
@@ -500,6 +518,10 @@ const Component = defineComponent({
     },
 
     async mapIsReady() {
+      if (this.show3dBuildings && this.mymap) {
+        enable3DBuildings(this.mymap)
+      }
+
       const files = await this.loadFiles()
 
       if (files) {
@@ -1138,6 +1160,7 @@ const Component = defineComponent({
       this.setMapExtent()
       this.buildSpiderLinks()
       this.setupKeyListeners()
+      this.updateTestData()
       this.loadingText = ''
     },
 
@@ -1342,10 +1365,22 @@ const Component = defineComponent({
 
       this.mymap.setStyle(style)
       await sleep(1200)
+      if (this.show3dBuildings && this.mymap) {
+        enable3DBuildings(this.mymap)
+      }
       this.buildCentroids(this.geojson)
       this.buildSpiderLinks()
       this.addGeojsonToMap(this.geojson)
       // this.setupKeyListeners()
+    },
+
+    show3dBuildings() {
+      if (!this.mymap) return
+      if (this.show3dBuildings) {
+        enable3DBuildings(this.mymap)
+      } else {
+        disable3DBuildings(this.mymap)
+      }
     },
 
     '$store.state.resizeEvents'() {
@@ -1393,13 +1428,9 @@ const Component = defineComponent({
 
   beforeDestroy() {
     this.resizer?.disconnect()
-<<<<<<< HEAD
-    if (this.csvWorker) this.csvWorker.terminate()
-=======
     this.csvWorker?.terminate()
     //@ts-ignore
     delete window.__testdata__
->>>>>>> upstream/master
   },
 
   destroyed() {

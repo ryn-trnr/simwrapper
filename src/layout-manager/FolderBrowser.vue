@@ -8,9 +8,6 @@
 
   //- main content
   .stripe.details(v-else)
-<<<<<<< HEAD
-   .vessel
-=======
    //- show zoomed image
    .image-zoom.flex-col(v-if="isZoomedImage" @click="isZoomedImage=null")
       image-view.image-zoom(
@@ -24,16 +21,22 @@
 
    //- show everthing else
    .vessel(v-show="!isZoomedImage" :id="idFolderTable" :class="{narrow: isNarrow}")
->>>>>>> upstream/master
 
     //- these are sections defined by viz-summary.yml etc
-    .curated-sections(:id="idFolderTable")
+    .curated-sections()
 
-      h2 {{ xsubfolder || cwd || root }}
+      .folder-title-stuff.flex-row
+        .flex1
+          h2 {{ cleanFolderTitle  }}
+        .favstar
+          p.favorite-icon-this(title="Favorite"
+            :class="{'is-thisfolderfavorite': isThisFolderFavorite}"
+            @click="clickedFavorite"
+          ): i.fa.fa-star
 
       //- FOLDERS: file system folders
       .folder-area(v-if="myState.folders.length")
-        h4.az-title  {{ $t('Folders') }}
+        h4.az-title.folder-title  {{ $t('Folders') }}
         .az-grid.folder-table
           //- .az-cell.heading folder
           //- .az-cell.heading Description
@@ -52,26 +55,15 @@
       //- MAPS: thumbnails of each viz map here
       .section-maps(v-if="Object.keys(vizMaps).length")
         h4.az-title {{ $t('Maps')}}
-        .az-grid(style="grid-template-columns: 1fr 1fr auto")
+        .az-grid.map-grid(:class="{narrow: isNarrow}")
           .az-cell.heading Title
-          .az-cell.heading Filename
+          .az-cell.heading.file-cell Filename
           .az-cell.heading Type
           .az-row(v-for="[index, viz] of Object.entries(vizMaps)" :key="index" @click="clickedVisualization(index)")
             a.az-cell: b {{ viz.title }}
-            .az-cell.pointer {{ viz.config }}
+            .az-cell.pointer.file-cell(:class="{'sameFilename': viz.title == viz.config}") {{ viz.config }}
             .az-cell
               .v-plugin.pointer(:style="`background-color: ${getTabColor(viz.component)}`") {{ viz.component || 'dashboard' }}
-              //- this "fake" hidden component is here so the plugin can send us its title
-              component.viz-frame-component(
-                  v-show="false"
-                  :is="viz.component"
-                  :root="myState.svnProject.slug"
-                  :subfolder="myState.subfolder"
-                  :yamlConfig="viz.config"
-                  :thumbnail="true"
-                  :fileApi="myState.svnRoot"
-                  :style="{'pointer-events': 'none'}"
-                  @title="updateTitle(index, $event)")
 
       //- IMAGES here
       .section-images(v-if="Object.keys(vizImages).length")
@@ -105,7 +97,7 @@
               :class="{fade: myState.isLoading}"
             )
               a(v-if="myState?.svnProject?.baseURL"
-                :href="`${myState.svnProject.baseURL}/${myState.subfolder}${file}`"
+                :href="`${myState.svnProject.baseURL}/${myState.subfolder}/${file}`"
               ) {{ cleanName(file) }}
               a(v-else
                 @click="chromeOpenFile(file)"
@@ -152,7 +144,6 @@ interface IMyState {
   subfolder: string
   summary: boolean
   vizes: VizEntry[]
-  finalFolder: string
 }
 
 import { defineComponent } from 'vue'
@@ -162,10 +153,10 @@ import katex from 'katex'
 import markdown from 'markdown-it'
 import markdownTex from 'markdown-it-texmath'
 import micromatch from 'micromatch'
-import yaml from 'yaml'
+import YAML from 'yaml'
 
 import globalStore from '@/store'
-import { BreadCrumb, FavoriteLocation, FileSystemConfig, YamlConfigs } from '@/Globals'
+import { FavoriteLocation, FileSystemConfig, XML_COMPONENTS, YamlConfigs } from '@/Globals'
 import HTTPFileSystem from '@/js/HTTPFileSystem'
 import { pluginComponents } from '@/plugins/pluginRegistry'
 
@@ -215,11 +206,8 @@ export default defineComponent({
       summaryYamlFilename: 'viz-summary.yml',
       mdRenderer,
       idFolderTable,
-<<<<<<< HEAD
-=======
       isNarrow: false,
       isZoomedImage: null as any,
->>>>>>> upstream/master
       resizeObserver: {} as ResizeObserver,
       myState: {
         errorStatus: '',
@@ -232,11 +220,27 @@ export default defineComponent({
         subfolder: '',
         vizes: [],
         summary: false,
-        finalFolder: '',
       } as IMyState,
     }
   },
   computed: {
+    cleanFolderTitle() {
+      let name: any = this.xsubfolder || this.cwd || this.root
+      name = name.replaceAll('//', '/')
+      if (name.endsWith('/')) name = name.substring(0, name.length - 1)
+      return name
+    },
+
+    isThisFolderFavorite(): any {
+      let key = this.root
+      if (this.xsubfolder) key += `/${this.xsubfolder}`
+      if (key.endsWith('/')) key = key.substring(0, key.length - 1)
+
+      const indexOfPathInFavorites = globalStore.state.favoriteLocations.findIndex(
+        f => key == f.fullPath
+      )
+      return indexOfPathInFavorites > -1
+    },
     cwd() {
       return this.$route.query.cwd || ''
     },
@@ -272,6 +276,50 @@ export default defineComponent({
     },
   },
   methods: {
+    clickedFavorite() {
+      let hint = `${this.root}/${this.xsubfolder}`
+      let finalFolder = this.xsubfolder || this.root
+      // remove current folder from subfolder
+      const lastSlash = hint.lastIndexOf('/')
+      if (lastSlash > -1) {
+        finalFolder = hint.substring(lastSlash + 1)
+        hint = hint.substring(0, lastSlash)
+      }
+
+      let fullPath = `${this.root}/${this.xsubfolder}`
+      if (fullPath.endsWith('/')) fullPath = fullPath.substring(0, fullPath.length - 1)
+
+      const favorite: FavoriteLocation = {
+        root: this.root,
+        subfolder: this.xsubfolder || '',
+        label: finalFolder,
+        fullPath,
+        hint,
+      }
+
+      this.$store.commit(this.isThisFolderFavorite ? 'removeFavorite' : 'addFavorite', favorite)
+    },
+
+    async guessTitles() {
+      const re = /\.(yml|yaml)$/
+      for (const viz of this.myState.vizes) {
+        try {
+          if (re.test(viz.config)) {
+            const text =
+              (await this.myState.svnRoot?.getFileText(
+                this.myState.subfolder + '/' + viz.config
+              )) || ''
+            const yaml = YAML.parse(text)
+            if (yaml.title) viz.title = yaml.title
+          }
+        } catch (e) {
+          // oh well
+        } finally {
+          if (viz.title == '..') viz.title = viz.config
+        }
+      }
+    },
+
     async chromeOpenFile(filename: string) {
       const decoded = decodeURIComponent(filename)
       const path = `${this.xsubfolder}/${decoded}`
@@ -367,7 +415,9 @@ export default defineComponent({
       }
     },
 
-    buildShowEverythingView() {
+    async buildShowEverythingView() {
+      const fileSet = new Set(this.myState.files)
+
       // loop on each viz type
       for (const viz of this.globalState.visualizationTypes.values()) {
         // match based on file patterns registered for each viz
@@ -375,6 +425,21 @@ export default defineComponent({
         for (const file of matches) {
           // add thumbnail for each matching file
           this.myState.vizes.push({ component: viz.kebabName, config: file, title: '..' })
+          // remove file from set of unmapped files
+          fileSet.delete(file)
+        }
+      }
+
+      // check for any remaining XML files
+      const xmlFiles = micromatch([...fileSet.keys()], ['*.xml', '*.xml.gz', '*.xml.zst'], {
+        nocase: true,
+      })
+      for (const file of xmlFiles) {
+        const answer = await this.myState.svnRoot?.probeXmlFileType(
+          `${this.myState.subfolder}/${file}`
+        )
+        if (answer && XML_COMPONENTS[answer]) {
+          this.myState.vizes.push({ component: XML_COMPONENTS[answer], config: file, title: file })
         }
       }
     },
@@ -383,7 +448,7 @@ export default defineComponent({
     async buildCuratedSummaryView() {
       if (!this.myState.svnRoot) return
 
-      const summaryYaml = yaml.parse(
+      const summaryYaml = YAML.parse(
         await this.myState.svnRoot.getFileText(
           this.myState.subfolder + '/' + this.summaryYamlFilename
         )
@@ -497,6 +562,7 @@ export default defineComponent({
       } finally {
         this.myState.isLoading = false
       }
+      this.guessTitles()
     },
 
     openOutputFolder(folder: string) {
@@ -552,6 +618,7 @@ export default defineComponent({
       const container = document.getElementById(this.idFolderTable) as any
       if (!container) return
 
+      // revise number of subfolder listing columns
       const items = this.myState.folders.length
       const itemHeight = 36 // Approximate height of each item
       const containerWidth = container.offsetWidth
@@ -560,8 +627,11 @@ export default defineComponent({
 
       let numRows = 8 + Math.ceil(items / maxColumns)
       if (containerWidth < 500) numRows = 10000
-
       container.style.setProperty('--num-rows', numRows)
+
+      // handle narrow viz list layout
+      const clientWidth = container.clientWidth
+      this.isNarrow = clientWidth < 550
     },
   },
   watch: {
@@ -590,7 +660,7 @@ export default defineComponent({
       if (this.myState.summary) {
         await this.buildCuratedSummaryView()
       } else {
-        this.buildShowEverythingView()
+        await this.buildShowEverythingView()
       }
     },
   },
@@ -615,8 +685,8 @@ export default defineComponent({
 @import '@/styles.scss';
 
 .folder-browser {
-  padding: 0 0;
-  background-image: var(--bgSplashPage);
+  margin-top: 1rem;
+  padding: 0 0 0 0.5rem;
 }
 
 .vessel {
@@ -888,8 +958,6 @@ h3.curate-heading {
 .az-title {
   margin-top: 2.5rem;
 }
-<<<<<<< HEAD
-=======
 
 .favorite-icon-this {
   margin: auto -0.5rem auto 1rem;
@@ -982,5 +1050,4 @@ h3.curate-heading {
     color: var(--link);
   }
 }
->>>>>>> upstream/master
 </style>

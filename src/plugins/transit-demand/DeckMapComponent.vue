@@ -15,6 +15,7 @@ import { COORDINATE_SYSTEM } from '@deck.gl/core'
 import globalStore from '@/store'
 import { LineOffsetLayer, OFFSET_DIRECTION } from '@/layers/LineOffsetLayer'
 import BackgroundLayers from '@/js/BackgroundLayers'
+import { disable3DBuildings, enable3DBuildings } from '@/js/maplibre/threeDBuildings'
 
 const BASE_URL = import.meta.env.BASE_URL
 
@@ -45,6 +46,7 @@ export default defineComponent({
     vizDetails: { type: Object, required: true },
     widthSlider: { type: Number, required: true },
     bgLayers: { type: Object as PropType<BackgroundLayers> },
+    show3dBuildings: { type: Boolean, required: false, default: false },
   },
 
   data() {
@@ -83,6 +85,12 @@ export default defineComponent({
       this.mymap?.setStyle(style)
     },
 
+    show3dBuildings() {
+      if (!this.mymap || !this.hasBackgroundMap) return
+      if (this.show3dBuildings) enable3DBuildings(this.mymap)
+      else disable3DBuildings(this.mymap)
+    },
+
     'globalState.viewState'() {
       const incoming = this.globalState.viewState as any
       const center = this.mymap?.getCenter() as any
@@ -93,7 +101,6 @@ export default defineComponent({
         incoming.pitch !== this.mymap?.getPitch() ||
         incoming.bearing !== this.mymap?.getBearing()
       ) {
-        console.log(incoming.zoom, incoming.longitude, incoming.latitude, incoming.center)
         this.mymap?.jumpTo(
           Object.assign({ center: { lng: incoming.longitude, lat: incoming.latitude } }, incoming)
         )
@@ -273,6 +280,10 @@ export default defineComponent({
     })
     this.mymap.on('move', this.handleMove)
     this.mymap.on('style.load', () => {
+      if (this.hasBackgroundMap && this.show3dBuildings && this.mymap) {
+        enable3DBuildings(this.mymap)
+      }
+
       this.deckOverlay = new MapboxOverlay({
         interleaved: false,
         useDevicePixels: true,
@@ -476,7 +487,7 @@ export default defineComponent({
     },
 
     handleClick(event: any) {
-      console.log('click!')
+      // console.log('click!')
       if (this.handleClickEvent) this.handleClickEvent(event)
     },
   },

@@ -14,6 +14,7 @@ vehicle-animation.deck-map(
 
 <script lang="ts">
 import VehicleAnimation from '@/plugins/vehicle-animation/VehicleAnimation.vue'
+// import VehicleAnimation from '@/plugins/imoger/VehicleAnimation.vue'
 
 export default {
   name: 'VehiclesPanel',

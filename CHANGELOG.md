@@ -1,9 +1,70 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-<<<<<<< HEAD
-=======
+### [4.7.1](https://github.com/simwrapper/simwrapper/compare/v4.7.0...v4.7.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* **sankey:** Sankey learned only-show-diffs mode ([4684024](https://github.com/simwrapper/simwrapper/commit/4684024e9b72bc0bd51e8c92a7c41ae6ab66e629)
+
+* **comments:** show comments from multiple CSVs in plotly chart plugin ([7fbb17c](https://github.com/simwrapper/simwrapper/commit/7fbb17cd0945718a5abbb85d1b9ded7cbf867110))
+* **flowmap:** better error checking on inputs ([a8398c7](https://github.com/simwrapper/simwrapper/commit/a8398c7a956ce34bad83022dcaddff3a85affb19))
+* some ZSTD files trigger a bug in the JS Zstd streaming decompressor library ([475d441](https://github.com/simwrapper/simwrapper/commit/475d44195a564caf2860a1a6b9fe202b7833bf79)), closes [#526](https://github.com/simwrapper/simwrapper/issues/526)
+
+## [4.7.0](https://github.com/simwrapper/simwrapper/compare/v4.6.0...v4.7.0) (2026-06-05)
+
+
+### Features
+
+* **csv:** Show comments in CSV file headers with "#" lines as info blocks ([630fe50](https://github.com/simwrapper/simwrapper/commit/630fe50a785cf0a66a907bf31159a886a56b7505))
+
+## [4.6.0](https://github.com/simwrapper/simwrapper/compare/v4.5.1...v4.6.0) (2026-05-14)
+
+
+### Features
+
+* Event streamer supports .zstd compression now ([617ad10](https://github.com/simwrapper/simwrapper/commit/617ad1074660ff545c13e6d748f088c2d387ee00))
+* Support .zst "ZStandard" file compression formats ([2845233](https://github.com/simwrapper/simwrapper/commit/284523333153edff69c3c29017d76b599a5720be))
+
+
+### Bug Fixes
+
+* MATSim XML network parser failed on (some) large networks, but only on Firefox/Safari ([5819c14](https://github.com/simwrapper/simwrapper/commit/5819c140db51bbd90182afa96aed046b826d700e)), closes [#521](https://github.com/simwrapper/simwrapper/issues/521)
+
+### [4.5.1](https://github.com/simwrapper/simwrapper/compare/v4.5.0...v4.5.1) (2026-04-21)
+
+
+### Bug Fixes
+
+* **map:** give user proper warning if geojson coords are not in long/lat ([77ee085](https://github.com/simwrapper/simwrapper/commit/77ee0859e6f037f2d08e0e7c41d50c011d41e303))
+* very small XML networks not loading with short XML tags <link /> ([fc87f65](https://github.com/simwrapper/simwrapper/commit/fc87f6562f05ce49aad2b66b1cac91e6bcfcba2f))
+
+## [4.5.0](https://github.com/simwrapper/simwrapper/compare/v4.4.0...v4.5.0) (2026-03-05)
+
+
+### Features
+
+* New Aequilibrae network file and dataset support ([3b9d6a9](https://github.com/simwrapper/simwrapper/commit/3b9d6a912b29c84f72a2e7ce162aed05d29b22c5))
+
+## [4.4.0](https://github.com/simwrapper/simwrapper/compare/v4.3.9...v4.4.0) (2026-02-13)
+
+
+### Features
+
+* **sankey:** add "sort: true/false" and sort options by default, alphabetically ([cec0169](https://github.com/simwrapper/simwrapper/commit/cec01691e1075d0d0df421fc5481048a6939eda3))
+
+
+### Bug Fixes
+
+* correct color bin thresholds for bounded diverging scales ([0dc94ca](https://github.com/simwrapper/simwrapper/commit/0dc94ca949c8ab7950a02c60ec9ee690de282f8d))
+* Popup no longer displayed after clicking on the map ([61c626f](https://github.com/simwrapper/simwrapper/commit/61c626f5c89247ffaec2b7b40d394b6a2bbcf6b3))
+* preserve selected time slice when reloading data on column/diff changes ([38d9bff](https://github.com/simwrapper/simwrapper/commit/38d9bff3729f3c3c7c4589d3791e64918deea4bc))
+* show tooltip for zero-valued cells in diff mode ([696ebe0](https://github.com/simwrapper/simwrapper/commit/696ebe0252278c8cb41a9207b5914b21860d782f))
+* tabbed dashboard error (mobile dropdown throw an error on initial render) ([c745f7a](https://github.com/simwrapper/simwrapper/commit/c745f7a5bf5fd6f94816f80db0750b32d7769020))
+* treat RdBu as diverging and label it as RdBu (div) ([7581bc8](https://github.com/simwrapper/simwrapper/commit/7581bc86791480766bcb9dd21a46b49ec1c87af1))
+
 ### [4.3.9](https://github.com/simwrapper/simwrapper/compare/v4.3.8...v4.3.9) (2025-11-30)
 
 
@@ -115,7 +176,6 @@ All notable changes to this project will be documented in this file. See [standa
 - ui cleanup with improved breadcrumbs and fixed split-panel layout ([4901485](https://github.com/simwrapper/simwrapper/commit/49014856287b59113f7376117fffc9cbc6be3244))
 - **xml:** XML parser failed to parse some files with DOCTYPE headers ([039d4e9](https://github.com/simwrapper/simwrapper/commit/039d4e931dbc15c9083b94ed34f2925c2a94b903))
 
->>>>>>> upstream/master
 ### [4.0.5](https://github.com/simwrapper/simwrapper/compare/v4.0.4...v4.0.5) (2025-07-07)
 
 ### Bug Fixes
@@ -417,7 +477,7 @@ New front page, file view, color scheme, event viewer (beta), map builder
 
 ## [3.0.0](https://github.com/simwrapper/simwrapper/compare/v2.5.4...v3.0.0) (2023-12-06)
 
-### ⚠ BREAKING CHANGES
+### ΓÜá BREAKING CHANGES
 
 - Project sites which use custom.css, header.md, and
   footer.md should review their dashboards to ensure they still fit with
@@ -586,7 +646,7 @@ Merge branch 'staging'
 
 ## [2.0.0](https://github.com/simwrapper/simwrapper/compare/v1.10.0...v2.0.0) (2022-12-16)
 
-### ⚠ BREAKING CHANGES
+### ΓÜá BREAKING CHANGES
 
 - several new config files require new parameters
 

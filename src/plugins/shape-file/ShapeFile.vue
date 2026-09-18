@@ -30,6 +30,8 @@
 
         .bglayer-section.flex-col(v-if="Object.keys(bgLayers).length")
           h5 Layers
+          b-checkbox.simple-checkbox(v-if="!isAtlantis" v-model="show3dBuildings")
+            | 3D buildings
           b-checkbox.simple-checkbox(v-for="layer in Object.keys(bgLayers)" :key="layer"
             @input="updateBgLayers" v-model="bgLayers[layer].visible"
           ) {{  layer }}
@@ -62,8 +64,6 @@
         :fillHeights="dataFillHeights"
         :highlightedLinkIndex="highlightedLinkIndex"
         :initialView="initialView"
-<<<<<<< HEAD
-=======
         :isRGBA="isRGBA"
         :isAtlantis="isAtlantis"
         :lineColors="dataLineColors"
@@ -73,8 +73,9 @@
         :pointRadii="dataPointRadii"
         :redraw="redraw"
         :screenshot="triggerScreenshot"
+        :show3dBuildings="show3dBuildings"
         :viewId="layerId"
->>>>>>> upstream/master
+        @error="$emit('error', $event)"
       )
 
       //- :features="useCircles ? centroids: boundaries"
@@ -114,7 +115,12 @@
           img.icon-blue-ramp(:src="icons.blueramp")
           b-slider.pie-slider(type="is-success" :tooltip="true" size="is-small"  :min="0" :max="100" v-model="sliderOpacity")
 
-      zoom-buttons(v-if="isLoaded && !vizDetails.mapIsIndependent")
+      zoom-buttons(
+        v-if="isLoaded && !vizDetails.mapIsIndependent"
+        :show3dToggle="!isAtlantis"
+        :is3dBuildings="show3dBuildings"
+        :onToggle3dBuildings="toggle3dBuildings"
+      )
 
       .config-bar(v-if="!isEmbedded && isLoaded && Object.keys(filters).length"
         :class="{'is-standalone': !configFromDashboard, 'is-disabled': !isLoaded}")
@@ -235,6 +241,7 @@ const MyComponent = defineComponent({
       icons: { blueramp: IconBlueRamp },
       opacitySlider: 50,
       avroNetwork: null as any,
+      isAtlantis: false,
       isAreaMode: false,
       isAvroFile: false,
       isDraggingDivider: 0,
@@ -261,6 +268,7 @@ const MyComponent = defineComponent({
 
       globalStore,
       globalState: globalStore.state,
+      show3dBuildings: false,
       layerId: Math.floor(1e12 * Math.random()),
       dbClearTooltip: {} as any,
       wantToClearTooltip: false,
@@ -438,6 +446,11 @@ const MyComponent = defineComponent({
   },
 
   methods: {
+    toggle3dBuildings() {
+      if (this.isAtlantis) return
+      this.show3dBuildings = !this.show3dBuildings
+    },
+
     setDesiredTooltipsNone() {
       this.tooltipDesiredColumns.forEach(m => (m.enabled = false))
     },
@@ -660,19 +673,20 @@ const MyComponent = defineComponent({
         columns = Object.keys(this.boundaryDataTable)
       }
 
+      // dont show nodes or coordinates
+      const hide = new Set(['id', 'from', 'to', 'source', 'dest', 'nodeCoordinates', 'nodeId'])
+      columns = columns.filter(m => !hide.has(m))
+
       if (this.vizDetails.tooltip?.length) {
         const delim = this.vizDetails.tooltip[0].indexOf(':') > -1 ? ':' : '.'
         columns = this.vizDetails.tooltip.map(tip => tip.substring(tip.indexOf(delim) + 1))
       }
 
-<<<<<<< HEAD
-=======
       // nice sort order puts useful network fields at the top
       const sortColumns = ['id', 'from', 'to', ...columns]
 
->>>>>>> upstream/master
       let featureProps = ''
-      columns.forEach(column => {
+      sortColumns.forEach(column => {
         if (this.boundaryDataTable[column]) {
           let value = this.boundaryDataTable[column].values[index]
           if (value == null) return
@@ -848,8 +862,8 @@ const MyComponent = defineComponent({
 
         // OR is this a bare geojson/geopackage/shapefile file? - build vizDetails manually
         if (
-          /(network\.xml)(|\.gz)$/.test(filename) ||
-          /(\.geojson)(|\.gz)$/.test(filename) ||
+          /(\.xml)(\.gz)?(\.zst)?$/.test(filename) ||
+          /(\.geojson)(\.gz)?(\.zst)?$/.test(filename) ||
           /\.shp$/.test(filename) ||
           /\.gpkg$/.test(filename) ||
           /network.*\.avro$/.test(filename) ||
@@ -878,6 +892,10 @@ const MyComponent = defineComponent({
         this.vizDetails.tooltip = tips
         this.config.tooltip = tips
       }
+
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
 
       const t = this.vizDetails.title || 'Map'
       this.$emit('title', t)
@@ -1481,7 +1499,7 @@ const MyComponent = defineComponent({
         // rowcount specified: join on the column name itself
         dataJoinColumn = columnName
       } else {
-        // nothing specified: let's hope they didn't want to join
+        // nothing specified, let's hope they didn't want to join
         if (this.datasetChoices.length > 1) {
           const boundaries = this.datasetChoices[0]
           if (datasetKey !== boundaries) {
@@ -2169,49 +2187,24 @@ const MyComponent = defineComponent({
     },
 
     async loadAvroNetwork(filename: string) {
-      const path = `${this.subfolder}/${filename}`
-      const blob = await this.fileApi.getFileBlob(path)
-
-      const records: any[] = await new Promise((resolve, reject) => {
-        const rows = [] as any[]
-        avro
-          .createBlobDecoder(blob)
-          .on('metadata', (schema: any) => {})
-          .on('data', (row: any) => {
-            rows.push(row)
-          })
-          .on('end', () => {
-            resolve(rows)
-          })
-      })
-
-      const network = records[0]
-
+      const network = (await this.myDataManager.getRoadNetwork(
+        filename,
+        this.subfolder,
+        this.vizDetails,
+        null,
+        true
+      )) as any
       // Build features with geometry, but no properties yet
       // (properties get added in setFeaturePropertiesAsDataSource)
       const numLinks = network.linkId.length
       const features = [] as any[]
-      const crs = network.crs || 'EPSG:4326'
-      const needsProjection = crs !== 'EPSG:4326' && crs !== 'WGS84'
 
       for (let i = 0; i < numLinks; i++) {
         const linkID = network.linkId[i]
-        const fromOffset = 2 * network.from[i]
-        const toOffset = 2 * network.to[i]
-        let coordFrom = [
-          network.nodeCoordinates[fromOffset],
-          network.nodeCoordinates[1 + fromOffset],
+        const coords = [
+          network.source.slice(i * 2, i * 2 + 2),
+          network.dest.slice(i * 2, i * 2 + 2),
         ]
-        let coordTo = [network.nodeCoordinates[toOffset], network.nodeCoordinates[1 + toOffset]]
-        if (!coordFrom || !coordTo) continue
-
-        if (needsProjection) {
-          coordFrom = Coords.toLngLat(crs, coordFrom)
-          coordTo = Coords.toLngLat(crs, coordTo)
-        }
-
-        const coords = [coordFrom, coordTo]
-
         const feature = {
           id: linkID,
           type: 'Feature',
@@ -2227,44 +2220,66 @@ const MyComponent = defineComponent({
       return features
     },
 
+    updateStatus(text: string) {
+      this.statusText = text
+      this.incrementLoadProgress()
+    },
+
     async loadXMLNetwork(filename: string): Promise<any> {
-      if (!this.myDataManager) throw Error('links: no datamanager')
+      if (!this.myDataManager) throw Error('no datamanager')
 
       this.statusText = 'Loading XML network...'
 
+      const features = [] as any[]
+
       try {
-        const network = await this.myDataManager.getRoadNetwork(
+        const network = (await this.myDataManager.getRoadNetwork(
           filename,
           this.subfolder,
           this.vizDetails,
-          (message: string) => {
-            this.statusText = message
-            this.incrementLoadProgress()
-          }
+          this.updateStatus
           // true // load extra columns
-        )
-        // convert to geojson
-        const numLinks = network.source.length / 2
-        const boundaries = [] as any[]
+        )) as any // TODO type NetworkLinks is a bit archaic at this point, needs an update
+
+        // Build features with geometry, but no properties yet
+        // (properties get added in setFeaturePropertiesAsDataSource)
+        const numLinks = network.linkId.length
+        const crs = network.crs || 'EPSG:4326'
+        const needsProjection = crs !== 'EPSG:4326' && crs !== 'WGS84'
+        this.isAtlantis = !!network.isAtlantis
+
         for (let i = 0; i < numLinks; i++) {
-          const offset = i * 2
-          const feature = {
-            type: 'Feature',
-            id: network.linkIds[i],
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: [
-                [network.source[offset], network.source[offset + 1]],
-                [network.dest[offset], network.dest[offset + 1]],
-              ],
-            },
+          const linkID = network.linkId[i]
+          const fromOffset = 2 * network.from[i]
+          const toOffset = 2 * network.to[i]
+          let coordFrom = [
+            network.nodeCoordinates[fromOffset],
+            network.nodeCoordinates[1 + fromOffset],
+          ]
+          let coordTo = [network.nodeCoordinates[toOffset], network.nodeCoordinates[1 + toOffset]]
+
+          if (needsProjection) {
+            coordFrom = Coords.toLngLat(crs, coordFrom)
+            coordTo = Coords.toLngLat(crs, coordTo)
           }
-          boundaries.push(feature)
+
+          const coords = [coordFrom, coordTo]
+
+          const feature = {
+            id: linkID,
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: coords },
+          }
+          features.push(feature)
         }
-        return boundaries
+
+        this.avroNetwork = network
+        this.isAvroFile = true
       } catch (e) {
-        console.error('' + e)
+        this.$emit('error', '' + e)
+      } finally {
+        return features
       }
     },
 
@@ -2426,7 +2441,7 @@ const MyComponent = defineComponent({
         // create the DataTable right here, we already have everything in memory
         const avroTable: DataTable = {}
 
-        const columns = this.avroNetwork.linkAttributes as string[]
+        const columns = [...this.avroNetwork.linkAttributes, 'from', 'to'] as string[]
         columns.sort()
 
         for (const colName of columns) {
@@ -2443,16 +2458,19 @@ const MyComponent = defineComponent({
           avroTable[colName] = dataColumn
         }
         // special case: allowedModes needs to be looked up
-        const modeLookup = this.avroNetwork['modes']
-        const allowedModes = avroTable['allowedModes']
-        allowedModes.type = DataType.STRING
-        allowedModes.values = allowedModes.values.map((v: number) => modeLookup[v])
-
+        if (this.avroNetwork.allowedModes) {
+          const modeLookup = this.avroNetwork['modes']
+          const allowedModes = avroTable['allowedModes']
+          allowedModes.type = DataType.STRING
+          allowedModes.values = allowedModes.values.map((v: number) => modeLookup[v])
+          avroTable['modes'] = allowedModes
+          delete avroTable['allowedModes']
+        }
         dataTable = await this.myDataManager.setRowWisePropertyTable(filename, avroTable, config)
 
         // special case: Avro networks have linkId instead of id, jesus christ!! :-()
         if ('linkId' in dataTable && !('id' in dataTable)) {
-          dataTable = { id: dataTable.linkId, ...dataTable }
+          dataTable = { id: dataTable.linkId, ...dataTable } as DataTable
           dataTable.id.name = 'id'
         }
 
@@ -2494,32 +2512,36 @@ const MyComponent = defineComponent({
       const numFeatures = this.boundaries.length
 
       for (let idx = 0; idx < numFeatures; idx += 256) {
-        const centroid = turf.centerOfMass(this.boundaries[idx])
-        if (centroid?.geometry?.coordinates) {
-          centerLong += centroid.geometry.coordinates[0]
-          centerLat += centroid.geometry.coordinates[1]
-          numCoords += 1
+        try {
+          const centroid = turf.centerOfMass(this.boundaries[idx])
+          if (centroid?.geometry?.coordinates) {
+            centerLong += centroid.geometry.coordinates[0]
+            centerLat += centroid.geometry.coordinates[1]
+            numCoords += 1
+          }
+        } catch (e) {
+          // who cares
         }
       }
 
       centerLong /= numCoords
       centerLat /= numCoords
+      let zoom = 9
 
       console.log('--- CALCULATED CENTER', centerLong, centerLat)
       // console.log('SMC: calculateAndMoveToCenter')
+      if (centerLong == undefined || centerLat == undefined) {
+        centerLong = 30
+        centerLat = 30
+        zoom = 5
+      }
 
       const view = {
         center: [centerLong, centerLat],
         bearing: 0,
         pitch: 0,
-<<<<<<< HEAD
-        zoom: 9,
-        initial: true,
-      }
-=======
         zoom,
       } as any
->>>>>>> upstream/master
       this.initialView = view
 
       if (!this.vizDetails.mapIsIndependent) {
@@ -2582,17 +2604,11 @@ const MyComponent = defineComponent({
     },
 
     async loadShapefileFeatures(filename: string) {
-      this.statusText = 'Loading shapefile...';
-      console.log('loading', filename);
+      this.statusText = 'Loading shapefile...'
+      console.log('loading', filename)
 
-      // Clean both subfolder and filename paths
-      const cleanSubfolder = this.subfolder.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
-      const cleanFilename = filename.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
-      
-      // Construct URL safely
-      const url = `${cleanSubfolder}/${cleanFilename}`.replace(/\/+/g, '/'); // Ensure single slashes
-      
-      let shpPromise, dbfPromise, dbfBlob;
+      const url = `${this.subfolder}/${filename}`
+      let shpPromise, dbfPromise, dbfBlob
 
       // first, get shp/dbf files
       let geojson: any = {}
@@ -2873,10 +2889,6 @@ const MyComponent = defineComponent({
     },
 
     clearData() {
-      // these lines change the properties of these objects
-      // WITHOUT reassigning them to new objects; this is
-      // essential for the garbage-collection to work properly.
-      // Otherwise we get a 500Mb memory leak on every view :-D
       this.boundaries = []
       this.centroids = []
       this.boundaryDataTable = {}
@@ -2890,6 +2902,10 @@ const MyComponent = defineComponent({
       this.dataCalculatedValues = null
       this.dataCalculatedValueLabel = ''
       this.bgLayers = {}
+      this.cbDatasetJoined = null
+      this.dataNormalizedValues = null
+      this.resizer = null
+      this.myDataManager.clearCache()
     },
 
     updateBgLayers() {
@@ -2971,7 +2987,7 @@ const MyComponent = defineComponent({
 
       // if we still need a centerpoint, calculate it
       if (this.needsInitialMapExtent && !this.vizDetails.center) {
-        this.calculateAndMoveToCenter()
+        await this.calculateAndMoveToCenter()
         this.needsInitialMapExtent = false
       }
 
@@ -2981,26 +2997,18 @@ const MyComponent = defineComponent({
       await this.$nextTick()
       await this.loadDatasets()
 
-      // Check URL query parameters
-
       this.datasets = Object.assign({}, this.datasets)
-      this.config.datasets = JSON.parse(JSON.stringify(this.datasets))
+      // this.config.datasets = JSON.parse(JSON.stringify(this.datasets))
       this.vizDetails = Object.assign({}, this.vizDetails)
 
       this.honorQueryParameters()
 
-<<<<<<< HEAD
-      this.statusText = ''
-
-      this.loadBackgroundLayers()
-=======
       this.backgroundLayers = new BackgroundLayers({
         vizDetails: this.vizDetails,
         fileApi: this.fileApi,
         subfolder: this.subfolder,
       })
       await this.backgroundLayers.initialLoad()
->>>>>>> upstream/master
     } catch (e) {
       this.$emit('error', '' + e)
       this.$emit('isLoaded')

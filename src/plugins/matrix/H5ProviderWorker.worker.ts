@@ -48,18 +48,14 @@ const H5Provider = {
 
     if (this.file) {
       await this._initLocalFile()
-    } else if (this.fileSystem.omx) {
-      await this._initOmxAPI()
+    } else if (this.fileSystem.flask) {
+      await this._initFlaskAPI()
     } else {
       await this._initFileAPI()
     }
     return { status: 'ok' }
   },
 
-<<<<<<< HEAD:src/plugins/matrix/H5Provider.ts
-  public async getDataArray(tableName: string) {
-    if (this.fileSystem.omx) {
-=======
   async getCatalog() {
     return this.catalog
   },
@@ -87,7 +83,6 @@ const H5Provider = {
 
   async getDataArray(tableName: string) {
     if (this.fileSystem?.flask) {
->>>>>>> upstream/master:src/plugins/matrix/H5ProviderWorker.worker.ts
       return this._getMatrixFromOMXApi(tableName)
     } else {
       return this._getMatrixFromH5File(tableName)
@@ -133,11 +128,7 @@ const H5Provider = {
     await this._setFileProps()
   },
 
-<<<<<<< HEAD:src/plugins/matrix/H5Provider.ts
-  private async _initOmxAPI() {
-=======
   async _initFlaskAPI() {
->>>>>>> upstream/master:src/plugins/matrix/H5ProviderWorker.worker.ts
     const props = await this._getOmxPropsFromOmxAPI()
     if (props) {
       this.catalog = props.catalog

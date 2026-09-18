@@ -9,7 +9,7 @@
             v-bind="mapProps"
           )
 
-        zoom-buttons(corner="top-left")
+        zoom-buttons(corner="top-left" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
 
         .bottom-panel(v-if="hasHours")
           h1 {{`Hours ${slider.filterStartHour} - ${slider.filterEndHour}` }}
@@ -160,6 +160,7 @@ const MyComponent = defineComponent({
         vizDetails: this.vizDetails,
         slider: this.slider,
         mapIsIndependent: false,
+        show3dBuildings: this.show3dBuildings,
       }
     },
 
@@ -297,6 +298,8 @@ const MyComponent = defineComponent({
         showOnlyTopFlows: null as number | null,
         maxTopFlowsDisplayNum: null as number | null,
       },
+
+      show3dBuildings: false,
     }
   },
 
@@ -391,6 +394,7 @@ const MyComponent = defineComponent({
         // this.validateYAML()
         console.log(this.configFromDashboard)
         this.vizDetails = Object.assign({}, this.configFromDashboard) as any
+        this.sync3dBuildingsSetting()
         return
       }
 
@@ -401,6 +405,17 @@ const MyComponent = defineComponent({
         await this.loadStandaloneYAMLConfig()
       }
       // No config at all; use the default
+      this.sync3dBuildingsSetting()
+    },
+
+    sync3dBuildingsSetting() {
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
+    },
+
+    toggle3dBuildings() {
+      this.show3dBuildings = !this.show3dBuildings
     },
 
     async buildThumbnail() {
@@ -566,12 +581,14 @@ const MyComponent = defineComponent({
       try {
         const { files } = await this.fileApi.getDirectory(this.myState.subfolder)
         const transitSchedule = files.filter(
-          f => f.endsWith('transitSchedule.xml.gz') && !f.startsWith('._')
+          f =>
+            (f.endsWith('transitSchedule.xml.gz') || f.endsWith('transitSchedule.xml.zst')) &&
+            !f.startsWith('._')
         )
         this.stopFacilities = transitSchedule
-
-        if (!transitSchedule) {
+        if (!transitSchedule.length) {
           console.error('no transit schedule found.')
+          this.$emit('error', 'No transit schedule found.')
           this.vizDetails.stopFacilitiesFile = ''
         } else {
           this.vizDetails.stopFacilitiesFile = transitSchedule[0]

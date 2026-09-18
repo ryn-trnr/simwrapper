@@ -28,8 +28,9 @@
           :stopActivities="stopActivities"
           :tourHubs="tourHubs"
           :viewId="linkLayerId"
+          :show3dBuildings="show3dBuildings"
           )
-        ZoomButtons(v-if="!thumbnail" corner="top-left")
+        ZoomButtons(v-if="!thumbnail" corner="top-left" :show3dToggle="true" :is3dBuildings="show3dBuildings" :onToggle3dBuildings="toggle3dBuildings")
         .xmessage(v-if="myState.statusMessage") {{ myState.statusMessage }}
 
       .dragger(
@@ -65,7 +66,7 @@
 
         h3(style="margin-left: 0.25rem" v-if="lsps.length") {{ 'Carriers' }}
 
-        .carrier-list
+        .carrier-list(data-testid="carrier-list")
           h5(style="font-weight:bold") {{"Direct Chain Carriers:"}}
           .carrier(v-for="carrier in lspCarriers" :key="carrier"
             :class="{selected: carrier==selectedCarrier}"
@@ -190,7 +191,7 @@ const i18n = {
   },
 }
 
-import { defineComponent } from 'vue'
+import { defineComponent, PropType } from 'vue'
 
 import { ToggleButton } from 'vue-js-toggle-button'
 import YAML from 'yaml'
@@ -202,6 +203,7 @@ import HTTPFileSystem from '@/js/HTTPFileSystem'
 import LegendColors from '@/components/LegendColors.vue'
 import ZoomButtons from '@/components/ZoomButtons.vue'
 import { gUnzip, parseXML, findMatchingGlobInFiles } from '@/js/util'
+import DashboardDataManager from '@/js/DashboardDataManager'
 
 import RoadNetworkLoader from '@/workers/RoadNetworkLoader.worker.ts?worker'
 import avro from '@/js/avro'
@@ -216,7 +218,7 @@ import BackgroundLayers from '@/js/BackgroundLayers'
 interface NetworkLinks {
   source: Float32Array
   dest: Float32Array
-  linkIds: any[]
+  linkId: any[]
   projection: String
 }
 
@@ -301,13 +303,10 @@ const LogisticsPlugin = defineComponent({
     yamlConfig: String,
     config: Object as any,
     thumbnail: Boolean,
+    datamanager: { type: Object as PropType<DashboardDataManager> },
   },
-<<<<<<< HEAD
-  data: () => {
-=======
 
   data() {
->>>>>>> upstream/master
     return {
       linkLayerId: Math.floor(1e12 * Math.random()),
 
@@ -337,6 +336,8 @@ const LogisticsPlugin = defineComponent({
         colors: {} as any,
       },
 
+      show3dBuildings: false,
+
       myState: {
         statusMessage: '',
         isRunning: false,
@@ -345,6 +346,10 @@ const LogisticsPlugin = defineComponent({
         thumbnail: true,
         data: [] as any[],
       },
+
+      // DataManager might be passed in from the dashboard; or we might be
+      // in single-view mode, in which case we need to create one for ourselves
+      myDataManager: this.datamanager || new DashboardDataManager(this.root, this.subfolder),
 
       searchTerm: '',
       searchEnabled: false,
@@ -1736,6 +1741,7 @@ const LogisticsPlugin = defineComponent({
       // are we in a dashboard?
       if (this.config) {
         this.vizDetails = Object.assign({}, this.config)
+        this.sync3dBuildingsSetting()
         return
       }
 
@@ -1749,6 +1755,7 @@ const LogisticsPlugin = defineComponent({
 
           const text = await this.fileApi.getFileText(filename)
           this.vizDetails = YAML.parse(text)
+          this.sync3dBuildingsSetting()
           return
         } catch (e) {
           console.log('failed' + e)
@@ -1794,6 +1801,17 @@ const LogisticsPlugin = defineComponent({
         thumbnail: '',
         colors: {},
       }
+      this.sync3dBuildingsSetting()
+    },
+
+    sync3dBuildingsSetting() {
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
+    },
+
+    toggle3dBuildings() {
+      this.show3dBuildings = !this.show3dBuildings
     },
 
     async setMapCenter() {
@@ -1897,14 +1915,6 @@ const LogisticsPlugin = defineComponent({
       return lspList
     },
 
-    async loadLinksCsv() {
-      const linksCsv = await this.loadFileOrGzippedFile('output_links.csv.gz')
-      if (linksCsv) {
-        return []
-      }
-      return linksCsv
-    },
-
     async loadCarriers() {
       // this.myState.statusMessage = '' + this.$i18n.t('message.tours')
       var lspCarrierList: any = []
@@ -1915,7 +1925,9 @@ const LogisticsPlugin = defineComponent({
           }
         })
       })
-      const carriersXML = await this.loadFileOrGzippedFile('output_carriers.xml.gz')
+      const carriersXML = await this.loadFileOrGzippedFile(
+        this.vizDetails.carriers || 'output_carriers.xml.gz'
+      )
       if (!carriersXML) {
         console.log("can't find carriers")
         return []
@@ -1979,11 +1991,17 @@ const LogisticsPlugin = defineComponent({
 
     async loadNetwork() {
       this.myState.statusMessage = 'Loading network...'
-
-      if (this.vizDetails.network.indexOf('.xml.') > -1) {
-        // load matsim xml file
-        const path = `${this.myState.subfolder}/${this.vizDetails.network}`
-        const net = await this.fetchNetwork(path, {})
+      if (
+        this.vizDetails.network.indexOf('.xml.') > -1 ||
+        this.vizDetails.network.endsWith('.avro')
+      ) {
+        const net = (await this.myDataManager.getRoadNetwork(
+          this.vizDetails.network,
+          this.subfolder,
+          this.vizDetails,
+          null,
+          true
+        )) as any
 
         // this.vizDetails.projection = '' + net.projection
         this.vizDetails.projection = 'EPSG:4326'
@@ -1994,7 +2012,7 @@ const LogisticsPlugin = defineComponent({
         this.myState.statusMessage = 'Building network link table'
         const links: { [id: string]: number[] } = {}
 
-        net.linkIds.forEach((linkId: string, i: number) => {
+        net.linkId.forEach((linkId: string, i: number) => {
           links[linkId] = [
             net.source[i * 2],
             net.source[i * 2 + 1],
@@ -2115,7 +2133,7 @@ const LogisticsPlugin = defineComponent({
 
         let content = ''
 
-        if (filepath.endsWith('xml') || filepath.endsWith('gz')) {
+        if (/.*(xml|gz|zst)$/.test(filepath)) {
           const blob = await this.fileApi.getFileBlob(filepath)
           const buffer = await blob.arrayBuffer()
           // recursively gunzip until it can gunzip no more:

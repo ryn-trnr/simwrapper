@@ -33,13 +33,13 @@ const i18n = {
 }
 
 import { defineComponent } from 'vue'
-import maplibregl from 'maplibre-gl'
 import { get } from 'idb-keyval'
 
 import globalStore from '@/store'
 import plugins from '@/plugins/pluginRegistry'
-import { ColorScheme, MAPBOX_TOKEN, MAP_STYLES_OFFLINE } from '@/Globals'
+import { ColorScheme, MAP_STYLES_OFFLINE } from '@/Globals'
 import { addInitialLocalFilesystems, addFlaskFilesystems } from '@/fileSystemConfig'
+import maplibregl from 'maplibre-gl'
 
 import TopNavBar from '@/layout-manager/TopNavBar.vue'
 
@@ -47,7 +47,7 @@ import TopNavBar from '@/layout-manager/TopNavBar.vue'
 // this is a required workaround to get the mapbox token assigned in TypeScript
 // see https://stackoverflow.com/questions/44332290/mapbox-gl-typing-wont-allow-accesstoken-assignment
 const writableMapBox: any = maplibregl
-writableMapBox.accessToken = MAPBOX_TOKEN
+writableMapBox.accessToken = ''
 
 let doThisOnceForLocalFiles = true
 
@@ -876,6 +876,39 @@ maplibregl-ctrl-attrib-button {
 }
 .scrollx {
   overflow-x: auto;
+}
+
+.xcardinfo-block {
+  background-color: var(--bgCardInfo);
+  border-top: 1px solid #bbbbbb40;
+  opacity: 0.95;
+  padding: 0.4rem 0.5rem;
+  max-height: 100%;
+  overflow-y: auto;
+
+  hr {
+    height: 1px;
+    background-color: var(--borderColor);
+    margin: 5px 0;
+  }
+
+  h1,
+  h2 {
+    font-size: 1.15rem;
+  }
+  h3,
+  h4 {
+    font-size: 1.1rem;
+  }
+  p {
+    line-height: 1.2rem;
+  }
+  ul {
+    line-height: 1.2rem;
+    list-style: disc !important;
+    list-style-position: inside !important;
+    margin-left: 0.5rem !important;
+  }
 }
 
 @media only screen and (max-width: 640px) {

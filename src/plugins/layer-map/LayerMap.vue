@@ -23,11 +23,11 @@
         @click="toggleHidePanel()"
       )
 
-    all-layers(v-show="!needsInitialMapExtent"
-      :viewId="viewId"
-      :layers="mapLayers"
-      :cbError="emitError"
-    )
+    //- all-layers(v-show="!needsInitialMapExtent"
+    //-   :viewId="viewId"
+    //-   :layers="mapLayers"
+    //-   :cbError="emitError"
+    //- )
 
     background-map-on-top(v-if="theme.roads=='above'")
 
@@ -67,7 +67,7 @@ import {
   DataSet,
 } from '@/Globals'
 
-import AllLayers from './AllLayers'
+// import AllLayers from './AllLayers'
 import AddDataModal from './AddDataModal.vue'
 import BackgroundMapOnTop from '@/components/BackgroundMapOnTop.vue'
 import DrawingTool from '@/components/DrawingTool/DrawingTool.vue'
@@ -103,7 +103,7 @@ const FLATE = window.flate
 export default defineComponent({
   name: 'LayerMap',
   components: {
-    AllLayers,
+    // AllLayers,
     AddDataModal,
     SaveMapModal,
     BackgroundMapOnTop,
@@ -367,7 +367,7 @@ export default defineComponent({
 
         // OR is this a bare geojson/shapefile file? - build vizDetails manually
         if (
-          /(\.geojson)(|\.gz)$/.test(filename) ||
+          /(\.geojson)(\.gz)?(.zst)?$/.test(filename) ||
           /\.shp$/.test(filename) ||
           /network\.avro$/.test(filename)
         ) {

@@ -5,7 +5,12 @@
     v-bind="mapProps"
   )
 
-  zoom-buttons(v-if="!thumbnail")
+  zoom-buttons(
+    v-if="!thumbnail"
+    :show3dToggle="true"
+    :is3dBuildings="show3dBuildings"
+    :onToggle3dBuildings="toggle3dBuildings"
+  )
   //- drawing-tool.drawing-tool(v-if="!thumbnail")
 
   .left-side(v-if="isLoaded && !thumbnail && vizDetails.title")
@@ -15,9 +20,9 @@
         h3(style="margin-top: -1rem;") {{ $t('areas') }}: {{ hexStats.numHexagons }}, {{ $t('count') }}: {{ hexStats.rows }}
         button.button(style="color: #c0f; border-color: #c0f" @click="handleShowSelectionButton") {{ $t('showDetails') }}
 
-  .control-panel(v-if="isLoaded && !thumbnail && !myState.statusMessage")
-        //- :class="{'is-dashboard': config !== undefined }"
-
+  .control-panel(v-if="isLoaded && !thumbnail && !myState.statusMessage"
+    data-testid="xy-hexagons-control-panel"
+  )
         .panel-item(v-for="group in Object.keys(aggregations)" :key="group")
           p.ui-label {{ group }}
           button.button.is-small.aggregation-button(
@@ -34,6 +39,10 @@
             :duration="0" :dotSize="12"
             :tooltip="false"
           )
+
+        .panel-item
+          b-switch(v-model="show3dBuildings" size="is-small")
+            | {{ $t('buildings3d') }}
 
           p.ui-label Hex Radius: {{ vizDetails.radius }}
           b-slider.ui-slider(v-model="vizDetails.radius"
@@ -60,6 +69,7 @@ const i18n = {
       selection: 'Selection',
       areas: 'Areas',
       count: 'Count',
+      buildings3d: '3D buildings',
     },
     de: {
       loading: 'Dateien laden...',
@@ -70,6 +80,7 @@ const i18n = {
       selection: 'Ausgewählt',
       areas: 'Orte',
       count: 'Anzahl',
+      buildings3d: '3D Gebäude',
     },
   },
 }
@@ -121,6 +132,8 @@ interface VizDetail {
   thumbnail?: string
   elements?: string
   aggregations: Aggregations
+  buildings3d?: boolean
+  show3dBuildings?: boolean
   radius: number
   maxHeight: number
   center: any
@@ -174,13 +187,11 @@ const MyComponent = defineComponent({
       gzipWorker: null as Worker | null,
       colorRamp: colorRamps[0],
       globalState: globalStore.state,
-<<<<<<< HEAD
-=======
       currentGroup: '',
 
       backgroundLayers: null as null | BackgroundLayers,
+      show3dBuildings: false,
 
->>>>>>> upstream/master
       vizDetails: {
         title: '',
         description: '',
@@ -199,7 +210,7 @@ const MyComponent = defineComponent({
         yamlConfig: '',
         thumbnail: false,
       },
-      requests: null as null | NewRowCache,
+      requests: {} as NewRowCache,
       highlightedTrips: [] as any[],
       searchTerm: '',
       searchEnabled: false,
@@ -246,9 +257,10 @@ const MyComponent = defineComponent({
     mapProps(): any {
       return {
         viewId: this.id,
+        group: this.currentGroup,
         agg: this.aggNumber,
         colorRamp: this.colorRamp,
-        coverage: 0.65,
+        coverage: 0.7,
         dark: this.$store.state.isDarkMode,
         data: this.requests,
         extrude: this.extrudeTowers,
@@ -261,6 +273,7 @@ const MyComponent = defineComponent({
         upperPercentile: 100,
         bgLayers: this.backgroundLayers,
         onClick: this.handleClick,
+        show3dBuildings: this.show3dBuildings,
       }
     },
     textColor(): any {
@@ -276,6 +289,7 @@ const MyComponent = defineComponent({
 
       return this.$store.state.colorScheme === ColorScheme.DarkMode ? darkmode : lightmode
     },
+
   },
   watch: {
     extrudeTowers() {
@@ -288,6 +302,10 @@ const MyComponent = defineComponent({
     },
   },
   methods: {
+    toggle3dBuildings() {
+      this.show3dBuildings = !this.show3dBuildings
+    },
+
     handleClick(target: any, event: any) {
       if (!target.layer) this.handleEmptyClick()
       else this.handleHexClick(target, event)
@@ -338,21 +356,20 @@ const MyComponent = defineComponent({
       }
 
       // select the anti-view
-      let numAggregations = this.requests?.columnIds.length ?? 0
-      let revAgg = this.aggNumber % 2 ? -1 : 1 // this.aggNumber - 1 : this.aggNumber + 1
+      let revAgg = this.aggNumber + (this.aggNumber % 2 ? -1 : 1) // this.aggNumber - 1 : this.aggNumber + 1
       const arcFilteredRows: any = []
 
-<<<<<<< HEAD
-      for (const row of pickedObject.object.points) {
-        const zoffset = row.index * 2
-        const revoffset = (row.index + revAgg) * 2
-=======
       for (const index of pickedObject.object.pointIndices) {
         const zoffset = index * 2
->>>>>>> upstream/master
 
-        const from = [this.requests?.positions[zoffset], this.requests?.positions[zoffset + 1]]
-        const to = [this.requests?.positions[revoffset], this.requests?.positions[revoffset + 1]]
+        const from = [
+          this.requests[this.currentGroup].positions[revAgg][zoffset],
+          this.requests[this.currentGroup].positions[revAgg][zoffset + 1],
+        ]
+        const to = [
+          this.requests[this.currentGroup].positions[this.aggNumber][zoffset],
+          this.requests[this.currentGroup].positions[this.aggNumber][zoffset + 1],
+        ]
 
         arcFilteredRows.push([from, to])
         this.highlightedTrips = arcFilteredRows
@@ -363,16 +380,9 @@ const MyComponent = defineComponent({
       this.colorRamp = this.colorRamps[revAgg]
     },
 
-<<<<<<< HEAD
-    async handleOrigDest(groupName: string, number: number) {
-      const groups = Object.keys(this.aggregations)
-      const groupNumber = groups.indexOf(groupName)
-      this.aggNumber = groupNumber * groups.length + number
-=======
     handleOrigDest(groupName: string, number: number) {
       this.currentGroup = groupName
       this.aggNumber = number
->>>>>>> upstream/master
       this.hexStats = null
       this.multiSelectedHexagons = {}
 
@@ -382,11 +392,18 @@ const MyComponent = defineComponent({
       this.colorRamp = this.colorRamps[number]
     },
 
+    sync3dBuildingsSetting() {
+      this.show3dBuildings = !!(
+        (this.vizDetails as any).buildings3d ?? (this.vizDetails as any).show3dBuildings
+      )
+    },
+
     async getVizDetails() {
       if (this.config) {
         this.validateYAML()
         this.vizDetails = Object.assign({}, this.config) as VizDetail
         this.setRadiusAndHeight()
+        this.sync3dBuildingsSetting()
         return
       }
 
@@ -397,6 +414,8 @@ const MyComponent = defineComponent({
       } else {
         await this.loadOutputTripsConfig()
       }
+
+      this.sync3dBuildingsSetting()
     },
 
     fetchXML(props: { worker: any; slug: string; filePath: string; options?: any }) {
@@ -590,13 +609,14 @@ const MyComponent = defineComponent({
 
         // Sets the map to the specified data
         this.$store.commit('setMapCamera', Object.assign({}, view))
-
         return
       }
 
       // user didn't give us the center, so calculate it
-      const data = this.requests?.positions || []
-      if (!data.length) return
+      const keys = Object.keys(this.requests)
+      if (!keys.length) return
+
+      const data = this.requests[keys[0]].positions[0]
 
       let samples = 0
       let longitude = 0

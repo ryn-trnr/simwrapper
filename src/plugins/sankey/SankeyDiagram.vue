@@ -6,6 +6,7 @@
   .labels(v-if="!thumbnail")
     p.center: b {{ totalTrips.toLocaleString() }} {{ $t('total') }}
 
+  b-switch.switcher(v-if="!thumbnail" v-model="onlyShowNetChanges" size="is-small") {{ $t('showNetChanges')}}
   b-switch.switcher(v-if="!thumbnail" v-model="onlyShowChanges" size="is-small") {{ $t('showChanges')}}
 
 </template>
@@ -13,8 +14,8 @@
 <script lang="ts">
 const i18n = {
   messages: {
-    en: { total: 'total', showChanges: 'Only show changes' },
-    de: { total: 'Insgesamt', showChanges: 'Nur Änderungen zeigen' },
+    en: { total: 'total', showChanges: 'Only show changes', showNetChanges: 'Only show net changes' },
+    de: { total: 'Insgesamt', showChanges: 'Nur Änderungen zeigen', showNetChanges: 'saldieren' },
   },
 }
 
@@ -46,6 +47,7 @@ interface SankeyYaml {
   dataset?: string
   title?: string
   description?: string
+  sort?: boolean
 }
 
 const MyComponent = defineComponent({
@@ -62,12 +64,13 @@ const MyComponent = defineComponent({
   data() {
     return {
       globalState: globalStore.state,
-      vizDetails: { csv: '', dataset: '', title: '', description: '' } as SankeyYaml,
+      vizDetails: { csv: '', dataset: '', title: '', description: '', sort: true } as SankeyYaml,
       loadingText: '',
       jsonChart: {} as any,
       totalTrips: 0,
       cleanConfigId: `sankey-${Math.floor(1e12 * Math.random())}` as any,
       onlyShowChanges: false,
+      onlyShowNetChanges: false,
       csvData: [] as any[],
       colorRamp: [] as string[],
       textSize: Size.small,
@@ -105,10 +108,21 @@ const MyComponent = defineComponent({
       this.getVizDetails()
     },
 
-    onlyShowChanges() {
+    onlyShowChanges(newValue) {
+      if (newValue) {
+        this.onlyShowNetChanges = false
+      }
       this.jsonChart = this.processInputs()
       this.doD3()
     },
+
+    onlyShowNetChanges(newValue) {
+      if (newValue) {
+        this.onlyShowChanges = false
+      }
+      this.jsonChart = this.processInputs()
+      this.doD3()
+    }
   },
 
   methods: {
@@ -156,6 +170,12 @@ const MyComponent = defineComponent({
         return []
       }
 
+      // sort the lines unless user specified sort: false
+      let lines = rawText.split('\n').slice(1)
+      const doNotSort = this.vizDetails.sort === false
+      if (!doNotSort) lines.sort()
+      rawText = lines.join('\n')
+
       try {
         const content = Papa.parse(rawText, {
           // using header:false because we don't care what
@@ -188,7 +208,7 @@ const MyComponent = defineComponent({
       this.totalTrips = 0
 
       try {
-        for (const cols of this.csvData.slice(1) as any[]) {
+        for (const cols of this.csvData as any[]) {
           if (!fromNodes.includes(cols[0])) fromNodes.push(cols[0])
           if (!toNodes.includes(cols[1])) toNodes.push(cols[1])
 
@@ -203,6 +223,7 @@ const MyComponent = defineComponent({
           // Don't include non-changes in the graph if we are hiding them
           if (this.onlyShowChanges && cols[0] === cols[1]) continue
 
+
           links.push([cols[0], cols[1], value])
           this.totalTrips += value
         }
@@ -210,6 +231,7 @@ const MyComponent = defineComponent({
         const e = err as any
         console.error(e)
       }
+
 
       // build js object
       const fromOrder = [] as number[]
@@ -237,6 +259,34 @@ const MyComponent = defineComponent({
         toLookup[title] = offset
         toOrder.push(offset)
       })
+
+
+      if (this.onlyShowNetChanges) {
+
+        for (const link of links) {
+
+          if (link[0] != link[1]) {
+            // find reverse
+            links.forEach((subLink: any) => {
+              if (subLink[0] === link[1] && subLink[1] === link[0]) {
+                if (link[2] > subLink[2]) {
+                  link[2] = Math.abs(link[2] - subLink[2])
+                  subLink[2] = 0
+                } else if (link[2] < subLink[2]) {
+                  subLink[2] = Math.abs(subLink[2] - link[2])
+                  link[2] = 0
+                } else {
+                  link[2], subLink[2] = 0
+                }
+              }
+            })
+          } else {
+            link[2] = 0
+          }
+        }
+      }
+
+      // something like, for from_nodes, if to_node is different, find flipped relationship and see which abosulte sum is higher - take difference and save it in answers.
 
       for (const link of links) {
         answer.links.push({
@@ -267,8 +317,8 @@ const MyComponent = defineComponent({
         this.textSize == Size.large
           ? 'bold 33px Arial'
           : this.textSize == Size.med
-          ? '24px Arial'
-          : '16px Arial'
+            ? '24px Arial'
+            : '16px Arial'
 
       let max = 0
 
