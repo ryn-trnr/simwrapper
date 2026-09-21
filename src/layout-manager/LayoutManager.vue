@@ -1250,8 +1250,8 @@ export default defineComponent({
   grid-row: 2 / 3;
   grid-column: 1 / 2;
   display: flex;
-  color: $colorSimWrapperYellow;
-  background-color: #11232a;
+  color: #ffffff;
+  background-color: #171c60;
   padding-right: 0.5rem;
 }
 

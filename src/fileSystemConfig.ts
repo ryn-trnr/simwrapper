@@ -40,7 +40,6 @@ async function getS3BaseURL(): Promise<string> {
     const { username } = await getAuthTokenAndUsername();
     return `https://d3o15hrk68p27o.cloudfront.net/user-scenarios/${username}`;
   } catch (error) {
-    console.error('Failed to fetch username:', error);
     // Fallback to a default baseURL or throw an error
     throw new Error('User is not logged in. Please log in to access the S3 bucket.');
   }
@@ -183,15 +182,6 @@ let fileSystems: FileSystemConfig[] = [
     example: true,
   },
   {
-    name: 'Visualization Examples',
-    slug: 'examples',
-    description: 'Various SimWrapper data vis types',
-    thumbnail: 'images/thumb-localfiles.jpg',
-    baseURL: 'https://svn.vsp.tu-berlin.de/repos/public-svn/shared/simwrapper',
-    example: true,
-    hidden: false,
-  },
-  {
     name: 'Hamburg RealLabHH',
     slug: 'reallabhh',
     description: 'Hamburg, Germany',
@@ -253,7 +243,7 @@ let fileSystems: FileSystemConfig[] = [
       s3Config.baseURL = s3BaseURL;
     }
   } catch (error) {
-    console.error('Failed to set S3 baseURL:', error);
+    // S3 baseURL not available; leave Scenarios filesystem as-is
   }
 })();
 

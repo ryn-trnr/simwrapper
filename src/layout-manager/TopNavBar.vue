@@ -205,13 +205,12 @@ export default defineComponent({
 <style scoped lang="scss">
 @import '@/styles.scss';
 
-$appTag: #32926f;
+$appTag: #0e113a;
 
 .top-hamburger-menu {
   user-select: none;
   gap: 1rem;
-  // background-image: linear-gradient(30deg, #425bda, #246a4f); // #801bec
-  color: #eee;
+  color: white;
   position: relative;
   z-index: 1000;
 }

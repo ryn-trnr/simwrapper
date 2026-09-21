@@ -18,7 +18,10 @@
       media="print"
       onload="this.media='all'"
     />
-<link href="/css/materialdesignicons.css.html" media="print" onload="this.media='all'" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@mdi/font@5.8.55/css/materialdesignicons.min.css"
+    />
     <link href="/images/SW_favicon.png" rel="icon" type="image/png" />
 
     <!-- descriptive things -->
@@ -61,9 +64,433 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,700;1,400;1,700&family=Libre+Franklin:ital,wght@0,300;0,700;1,400;1,700&family=Roboto+Slab:ital,wght@0,400;0,700;1,300&display=swap"
-      rel="stylesheet"
+rel="stylesheet"
     />
-  </head>
+
+    <script>
+      // The backend pipeline generates each scenario's dashboard-*.yaml with a
+      // hardcoded cycleway color list that predates FASTrack's safety-gradient
+      // legend (green=safest -> red=highest-stress) used on the Maker page.
+      // Rather than waiting on a backend change, patch every dashboard YAML's
+      // colors in-flight so Viewer matches Maker for every scenario, old and new.
+      (function () {
+        var CYCLEWAY_COLOR_MAP = {
+          '#2576b8': '#eda100', // simple_lane
+          '#43a340': '#eb6834', // inadequate_lane
+          '#ff7f00': '#2a78d6', // separated_lane
+          '#06c7b4': '#e34948', // shared_street
+          '#d62f31': '#1baf7a', // shared_path
+          '#9848a8': '#008300', // bikepath
+        };
+
+        function patchYamlText(text) {
+          var patched = text;
+          for (var oldColor in CYCLEWAY_COLOR_MAP) {
+            patched = patched.split(oldColor).join(CYCLEWAY_COLOR_MAP[oldColor]);
+          }
+          return patched;
+        }
+
+        function isDashboardYaml(url, text) {
+          return /\.ya?ml(\?|$)/i.test(url) && text.indexOf('cycleway') !== -1;
+        }
+
+        var originalFetch = window.fetch;
+        window.fetch = function () {
+          var args = arguments;
+          var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+          return originalFetch.apply(window, args).then(function (response) {
+            if (!response.ok) return response;
+            return response
+              .clone()
+              .text()
+              .then(function (text) {
+                if (isDashboardYaml(url, text)) {
+                  return new Response(patchYamlText(text), {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers,
+                  });
+                }
+                return response;
+              });
+          });
+        };
+
+        var originalOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) {
+          this.__fastrackUrl = url;
+          return originalOpen.apply(this, arguments);
+        };
+        var originalDefineResponseText = Object.getOwnPropertyDescriptor(
+          XMLHttpRequest.prototype,
+          'responseText'
+        );
+        if (originalDefineResponseText && originalDefineResponseText.get) {
+          Object.defineProperty(XMLHttpRequest.prototype, 'responseText', {
+            get: function () {
+              var text = originalDefineResponseText.get.call(this);
+              if (typeof text === 'string' && this.__fastrackUrl && isDashboardYaml(this.__fastrackUrl, text)) {
+                return patchYamlText(text);
+              }
+              return text;
+            },
+          });
+        }
+      })();
+    </script>
+    <script>
+      // Dashboard YAMLs title legends with the raw data column name
+      // (chng_vol, lts_chng, ...) and SimWrapper renders quantile breakpoints
+      // as unrounded floats (10.35135135135135). Neither is written by us, so
+      // patch the rendered legend DOM instead of the data pipeline.
+      (function () {
+        var LEGEND_TITLE_MAP = {
+          cycleway: 'Cycleway Type',
+          chng_vol: 'Change in Cycling Volume',
+          chng_time: 'Change in Cycling Travel Time',
+          lts_chng: 'Change in Traffic Stress',
+          avg_per_day: 'Daily Average (g/km)',
+        };
+
+        function formatLegendValue(text) {
+          if (!/^-?\d+\.\d{3,}$/.test(text)) return text;
+          var num = parseFloat(text);
+          if (!isFinite(num)) return text;
+          var rounded = Math.round(num * 100) / 100;
+          return rounded.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function cleanupLegends() {
+          document.querySelectorAll('.legend-section').forEach(function (section) {
+            var titleEl = section.querySelector('p > b');
+            if (titleEl && !titleEl.dataset.fastrackPatched) {
+              var raw = titleEl.textContent.trim();
+              if (LEGEND_TITLE_MAP[raw]) titleEl.textContent = LEGEND_TITLE_MAP[raw];
+              titleEl.dataset.fastrackPatched = '1';
+            }
+            section.querySelectorAll('.row-label').forEach(function (label) {
+              if (label.dataset.fastrackPatched) return;
+              label.textContent = formatLegendValue(label.textContent.trim());
+              label.dataset.fastrackPatched = '1';
+            });
+          });
+        }
+
+        var pendingCleanup = null;
+        function scheduleCleanup() {
+          if (pendingCleanup) return;
+          pendingCleanup = requestAnimationFrame(function () {
+            pendingCleanup = null;
+            cleanupLegends();
+          });
+        }
+
+        function start() {
+          new MutationObserver(scheduleCleanup).observe(document.body, { childList: true, subtree: true });
+          cleanupLegends();
+        }
+
+        if (document.body) start();
+        else document.addEventListener('DOMContentLoaded', start);
+      })();
+    </script>
+    <style>
+      /* Cost Benefit Analysis topsheet: the raw component is a flat, dense
+         list of rows with no visual hierarchy between inputs and results, and
+         the two headline decision numbers (NPV, BCR) carry no more weight
+         than any other line. Restyled below; text content is patched by the
+         matching script block. */
+      .topsheet .output-table {
+        border-radius: 10px;
+        border: 1px solid #e5e5e8;
+        overflow: hidden;
+      }
+      .topsheet .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #eee;
+      }
+      .topsheet .row:last-child {
+        border-bottom: none;
+      }
+      .topsheet .row:nth-child(even) {
+        background: #fafafc;
+      }
+      .topsheet .cell.top-value:not(.control) {
+        font-variant-numeric: tabular-nums;
+        color: #171c60;
+        white-space: nowrap;
+      }
+      .cba-section-heading {
+        font-size: 13px;
+        font-weight: 700;
+        color: #171c60;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 20px 0 8px;
+      }
+      .cba-section-heading:first-child {
+        margin-top: 0;
+      }
+      .cba-editable-row .top-label::after {
+        content: 'Editable';
+        display: inline-block;
+        align-items: center;
+        margin-top: 6px;
+        margin-left: 8px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #171c60;
+        background: #eef0fa;
+        border-radius: 4px;
+        padding: 2px 6px;
+        vertical-align: middle;
+      }
+      .cba-headline-row {
+        background: linear-gradient(135deg, #171c60, #232a7a) !important;
+        border-radius: 10px !important;
+        margin: 8px 0 !important;
+        border-bottom: none !important;
+        padding: 16px !important;
+        align-items: flex-start !important;
+      }
+      .cba-headline-row .top-label,
+      .cba-headline-row .top-value {
+        color: #ffffff !important;
+      }
+      .cba-headline-title {
+        font-size: 15px;
+        font-weight: 700;
+        margin-top: 6px;
+      }
+      .cba-headline-desc {
+        font-size: 12px;
+        font-weight: 400;
+        opacity: 0.75;
+        margin-top: 3px;
+      }
+      .cba-headline-row .top-value {
+        font-size: 20px !important;
+        font-weight: 600 !important;
+      }
+    </style>
+    <script>
+      // Beautifies the Cost Benefit Analysis topsheet: adds Inputs/Results
+      // section headings, replaces the raw "USER INPUT | " text prefix with a
+      // styled badge, and pulls the two decision-making numbers (NPV, BCR) out
+      // as headline stat rows.
+      (function () {
+        function cleanupCba() {
+          document.querySelectorAll('.topsheet .output-table').forEach(function (table, tableIndex) {
+            if (!table.dataset.fastrackHeading) {
+              var heading = document.createElement('div');
+              heading.className = 'cba-section-heading';
+              heading.textContent = tableIndex === 0 ? 'Inputs' : 'Results';
+              table.parentElement.insertBefore(heading, table);
+              table.dataset.fastrackHeading = '1';
+            }
+
+            Array.from(table.querySelectorAll(':scope > .row')).forEach(function (row) {
+              var labelEl = row.querySelector('.top-label');
+              if (!labelEl) return;
+              var label = labelEl.textContent.trim();
+
+              if (label.indexOf('USER INPUT | ') === 0) {
+                labelEl.textContent = label.replace('USER INPUT | ', '');
+                row.classList.add('cba-editable-row');
+                label = labelEl.textContent.trim();
+              }
+
+              if (/^(NET PRESENT VALUE|BENEFIT COST RATIO)/.test(label)) {
+                row.classList.add('cba-headline-row');
+              }
+            });
+          });
+        }
+
+        var pendingCbaCleanup = null;
+        function scheduleCbaCleanup() {
+          if (pendingCbaCleanup) return;
+          pendingCbaCleanup = requestAnimationFrame(function () {
+            pendingCbaCleanup = null;
+            cleanupCba();
+          });
+        }
+
+        function start() {
+          new MutationObserver(scheduleCbaCleanup).observe(document.body, { childList: true, subtree: true });
+          cleanupCba();
+        }
+
+        if (document.body) start();
+        else document.addEventListener('DOMContentLoaded', start);
+      })();
+    </script>
+    <style>
+      /* The Files tab's curated "Maps" section already gives planners a
+         readable way to reach the shapefiles/topsheet that matter. Below it,
+         SimWrapper also dumps every raw artifact in the scenario folder
+         (.dbf/.prj/.shx shapefile sidecars, PROCESSING_COMPLETE_*.json
+         markers, per-link CSVs) with no distinction from anything useful.
+         Collapsed by default; still one click away for anyone who does want
+         the raw files. */
+      .files-section.fastrack-collapsed .file-table {
+        display: none;
+      }
+      .fastrack-files-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 4px 0 12px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #171c60;
+        background: #eef0fa;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .fastrack-files-toggle:hover {
+        background: #dfe2f5;
+      }
+    </style>
+    <script>
+      // Collapses the raw technical file dump on the Files tab behind a
+      // toggle, leaving the curated "Maps" section (readable titles, type
+      // badges) as the primary way planners interact with this page.
+      (function () {
+        function addToggle() {
+          var section = document.querySelector('.files-section');
+          if (!section || section.dataset.fastrackToggled) return;
+          var table = section.querySelector('.file-table');
+          if (!table) return;
+          section.dataset.fastrackToggled = '1';
+          section.classList.add('fastrack-collapsed');
+
+          var fileCount = table.querySelectorAll('.file').length;
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'fastrack-files-toggle';
+          btn.textContent = 'Show ' + fileCount + ' technical files';
+          btn.addEventListener('click', function () {
+            var collapsed = section.classList.toggle('fastrack-collapsed');
+            btn.textContent = collapsed ? 'Show ' + fileCount + ' technical files' : 'Hide technical files';
+          });
+          table.parentElement.insertBefore(btn, table);
+        }
+
+        var pendingFilesCleanup = null;
+        function scheduleFilesCleanup() {
+          if (pendingFilesCleanup) return;
+          pendingFilesCleanup = requestAnimationFrame(function () {
+            pendingFilesCleanup = null;
+            addToggle();
+          });
+        }
+
+        function start() {
+          new MutationObserver(scheduleFilesCleanup).observe(document.body, { childList: true, subtree: true });
+          addToggle();
+        }
+
+        if (document.body) start();
+        else document.addEventListener('DOMContentLoaded', start);
+      })();
+    </script>
+    <script>
+      // Scenario folders are named by timestamp (scenario_YYMMDD_HHMMSS) --
+      // that's the backend's real, unique identifier and this never touches
+      // it. The Maker page can optionally upload a small scenario-name.txt
+      // alongside a scenario's files; if present, show it here instead of
+      // the raw timestamp (always paired with the timestamp, so two
+      // identically-named scenarios stay distinguishable). Folders without
+      // a name file silently keep showing their timestamp.
+      (function () {
+        function isDirectoryListing(text) {
+          return typeof text === 'string' && text.indexOf('<title>File List') !== -1;
+        }
+
+        // Wraps whatever window.fetch currently is (possibly already
+        // patched by the color-fix script above) purely to observe listing
+        // responses -- never rewrites anything here.
+        var originalFetch = window.fetch;
+        window.fetch = function () {
+          var args = arguments;
+          var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+          return originalFetch.apply(window, args).then(function (response) {
+            if (response.ok && /\/$/.test(url)) {
+              response
+                .clone()
+                .text()
+                .then(function (text) {
+                  if (isDirectoryListing(text)) window.__fastrackListingRoot = url;
+                })
+                .catch(function () {});
+            }
+            return response;
+          });
+        };
+
+        var nameCache = {};
+
+        function isScenarioFolder(name) {
+          return /^scenario_\d{6}_\d{6}$/.test(name);
+        }
+
+        function applyName(span, raw, name) {
+          var trimmed = (name || '').trim();
+          if (!trimmed || span.dataset.fastrackNamed) return;
+          span.dataset.fastrackNamed = '1';
+          span.textContent = '  ' + trimmed + '  ·  ' + raw;
+        }
+
+        function patchFolderNames() {
+          var root = window.__fastrackListingRoot;
+          if (!root) return;
+          document.querySelectorAll('.az-cell.folder span').forEach(function (span) {
+            var raw = span.textContent.replace(/ /g, '').trim();
+            if (!isScenarioFolder(raw) || span.dataset.fastrackNameChecked) return;
+            span.dataset.fastrackNameChecked = '1';
+            if (Object.prototype.hasOwnProperty.call(nameCache, raw)) {
+              applyName(span, raw, nameCache[raw]);
+              return;
+            }
+            fetch(root + raw + '/scenario-name.txt')
+              .then(function (res) { return res.ok ? res.text() : null; })
+              .then(function (name) {
+                nameCache[raw] = name;
+                if (name) applyName(span, raw, name);
+              })
+              .catch(function () {});
+          });
+        }
+
+        var pendingNameCleanup = null;
+        function scheduleNameCleanup() {
+          if (pendingNameCleanup) return;
+          pendingNameCleanup = requestAnimationFrame(function () {
+            pendingNameCleanup = null;
+            patchFolderNames();
+          });
+        }
+
+        function start() {
+          new MutationObserver(scheduleNameCleanup).observe(document.body, { childList: true, subtree: true });
+          patchFolderNames();
+        }
+
+        if (document.body) start();
+        else document.addEventListener('DOMContentLoaded', start);
+      })();
+    </script>
+</head>
   <body>
     <div id="app"></div>
     <script type="module" src="/src/js/avro-browserify.js"></script>

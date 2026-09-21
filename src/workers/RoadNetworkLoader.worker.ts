@@ -449,7 +449,7 @@ function buildLinkChunk(nodes: any, linkIds: any[], links: any[]) {
 
 async function fetchMatsimXmlNetwork(filePath: string, fileSystem: FileSystemConfig, options: any) {
   const rawData = await fetchGzip(filePath, fileSystem)
-  console.log({ rawData })
+  // console.log({ rawData })
   if (!rawData) throw 'Failed to unzip/parse'
   const u8 = new Uint8Array(rawData)
   try {

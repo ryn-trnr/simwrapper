@@ -1,14 +1,14 @@
 <template lang="pug">
 .trail(v-if="root")
+  top-nav-bar.top-bar(v-if="(!$store.state.topNavItems && !$store.state.leftNavItems)")
   .x-home
-    p(@click="clickedBreadcrumb({url: '/'})")
-      i.fa.fa-home
+    p(@click="clickedBreadcrumb({url: '/'})"): b SimWrapper
 
   .x-breadcrumbs(v-if="root && isSplitMode")
     a(v-for="crumb,i in crumbs.slice(1)"
       :key="crumb.url"
       @click="clickedBreadcrumb(crumb)"
-    ) &nbsp;•&nbsp;{{ crumb.label }}
+    ) &nbsp;›&nbsp;{{ crumb.label }}
 
   .x-breadcrumbs(v-if="root && !isSplitMode")
     p(v-for="crumb,i in crumbs.slice(1)" :key="`${crumb.root}${crumb.subfolder}`")
@@ -23,12 +23,13 @@ import { defineComponent } from 'vue'
 import type { PropType } from 'vue'
 
 import { BreadCrumb, FileSystemConfig } from '@/Globals'
+import TopNavBar from '@/layout-manager/TopNavBar.vue'
 
 const BASE_URL = import.meta.env.BASE_URL
 
 export default defineComponent({
   name: 'BreadCrumbs',
-  components: {},
+  components: { TopNavBar },
 
   data() {
     return {
@@ -127,37 +128,48 @@ export default defineComponent({
 @import '@/styles.scss';
 
 .trail {
-  font-size: 1rem;
+  font-family: FiraSans, Figtree, Roboto, Helvetica, Arial, sans-serif;
   display: flex;
+  color: #ffffff;
+  font-size: 0.9rem;
   p:hover {
-    color: var(--linkHover);
+    color: #dbe3ff;
     cursor: pointer;
   }
 }
 
+.top-bar {
+  transition: padding 0.2s ease-in-out, max-width 0.3s ease-in-out;
+  z-index: 5;
+}
+
+.top-bar.full-page-app {
+  padding: 0 0;
+  max-width: unset;
+}
+
 .x-home {
   line-height: 1.4rem;
-  font-size: 0.8rem;
+  margin: 5px 1px 0 0;
 }
 
 .x-breadcrumbs {
   flex: 1;
   display: flex;
   flex-flow: row wrap;
-  line-height: 1.2rem;
+  line-height: 1rem;
   max-width: 100%;
-  margin-top: 2px;
-
+  margin: auto 0;
   p {
     width: max-content;
   }
 
   a {
     font-weight: 400;
-    color: #65d68f;
+    color: #aac4ff;
   }
   a:hover {
-    color: #a8ffc8;
+    color: #dbe3ff;
   }
 }
 

@@ -206,8 +206,6 @@ class HTTPFileSystem {
   }
 
   private async _getFileFetchResponseAWS(scaryPath: string, headers: Record<string, string> = {}): Promise<Response> {
-      console.log('Raw scaryPath input:', scaryPath);
-
       // Normalize path - remove leading and trailing slashes and double slashes
       scaryPath = scaryPath.replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
 
@@ -227,12 +225,6 @@ class HTTPFileSystem {
           });
 
           if (!response.ok) {
-              console.error('AWS Request Failed:', {
-                  status: response.status,
-                  url: fullPath,
-                  headers: Object.fromEntries(response.headers.entries())
-              });
-
               // Clear auth token if request failed due to auth error
               if (response.status === 401 || response.status === 403) {
                   this.authToken = '';
@@ -243,10 +235,6 @@ class HTTPFileSystem {
 
           return response;
       } catch (error) {
-          console.error('AWS Request Error:', {
-              url: fullPath,
-              error: error instanceof Error ? error.message : String(error)
-          });
           throw error;
       }
   }
@@ -891,13 +879,8 @@ class HTTPFileSystem {
     // Extract text response (HTML)
     const htmlText = await response.text();
 
-    console.log('HTML Response:', htmlText);
-
     // Parse HTML to extract files and directories
     const { files, dirs } = this.parseHtmlDirectoryListing(htmlText);
-
-    console.log('Files:', files);
-    console.log('Dirs:', dirs);
 
     // Return a DirectoryEntry object
     return {

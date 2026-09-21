@@ -47,8 +47,10 @@ const initialViewState = () => {
 
 const isMainThread = typeof window !== 'undefined'
 const initialLeftSection = isMainThread ? localStorage.getItem('activeLeftSection') || '' : ''
+const initialColorScheme = (isMainThread ? localStorage.getItem('colorscheme') : null) || 'light'
+const initialIsDarkMode = initialColorScheme === 'dark'
 
-console.log('INITIAL LEFT SECTION', initialLeftSection)
+// console.log('INITIAL LEFT SECTION', initialLeftSection)
 export default new Vuex.Store({
   state: {
     app: 'SimWrapper',
@@ -62,7 +64,8 @@ export default new Vuex.Store({
     isFullWidth: true,
     isShowingLeftBar: true,
     isShowingFilesTab: true,
-    isDarkMode: true,
+    isShowingBreadcrumbs: true,
+    isDarkMode: initialIsDarkMode,
     isInitialViewSet: false,
     favoriteLocations: [] as FavoriteLocation[],
     fileHandleAccessRequests: [] as any[],
@@ -80,7 +83,7 @@ export default new Vuex.Store({
     statusMessage: 'Loading',
     svnProjects: fileSystems,
     visualizationTypes: new Map() as Map<string, VisualizationPlugin>,
-    colorScheme: ColorScheme.DarkMode,
+    colorScheme: initialIsDarkMode ? ColorScheme.DarkMode : ColorScheme.LightMode,
     locale: 'en',
     localFileHandles: [] as { key: string; handle: any }[],
     localURLShortcuts: {} as { [id: string]: FileSystemConfig },
@@ -152,6 +155,9 @@ export default new Vuex.Store({
     },
     setShowLeftBar(state, value: boolean) {
       state.isShowingLeftBar = value
+    },
+    setShowBreadcrumbs(state, value: boolean) {
+      state.isShowingBreadcrumbs = value
     },
     setTopNavItems(
       state,
