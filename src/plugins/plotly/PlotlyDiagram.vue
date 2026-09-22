@@ -225,7 +225,7 @@ const MyComponent = defineComponent({
     this.createFacets()
 
     // Fix: If two x axes are used, the x-axis labels are not displayed correctly.
-    if (Array.isArray(this.traces[0].x[0])) {
+    if (this.traces[0]?.x && Array.isArray(this.traces[0].x[0])) {
       this.layout.xaxis.autotickangles = [0, 90]
     }
   },

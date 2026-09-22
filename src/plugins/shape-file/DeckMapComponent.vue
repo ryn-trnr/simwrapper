@@ -14,7 +14,6 @@ import { rgb } from 'd3-color'
 import globalStore from '@/store'
 import { LineOffsetLayer, OFFSET_DIRECTION } from '@/layers/LineOffsetLayer'
 import GeojsonOffsetLayer from '@/layers/GeojsonOffsetLayer'
-import Screenshots from '@/js/screenshots'
 import BackgroundLayers from '@/js/BackgroundLayers'
 import { disable3DBuildings, enable3DBuildings } from '@/js/maplibre/threeDBuildings'
 
@@ -47,7 +46,6 @@ export default defineComponent({
     opacity: { type: Number, required: true },
     pointRadii: { type: [Number, Float32Array], required: true }, //  = 4 as number | Float32Array,
     redraw: { type: Number, required: true },
-    screenshot: { type: Number, required: true },
     viewId: { type: Number, required: true },
     lineWidthUnits: { type: String, required: false, default: 'pixels' },
     pointRadiusUnits: { type: String, required: false, default: 'pixels' },
@@ -59,7 +57,6 @@ export default defineComponent({
       mymap: null as maplibregl.Map | null,
       deckOverlay: null as InstanceType<typeof MapboxOverlay> | null,
       globalState: globalStore.state,
-      screenshotCount: this.screenshot,
       tooltipHTML: '',
       tooltipStyle: {
         position: 'absolute',
@@ -75,12 +72,6 @@ export default defineComponent({
   },
 
   watch: {
-    screenshot() {
-      if (this.mymap && this.deckOverlay) {
-        Screenshots.saveMapWithOverlay(this.mymap)
-      }
-    },
-
     layers() {
       if (!this.deckOverlay) return
 
@@ -126,10 +117,6 @@ export default defineComponent({
   },
 
   computed: {
-    isTakingScreenshot() {
-      return this.screenshot > this.screenshotCount
-    },
-
     isStroked() {
       return !!this.lineColors && this.lineWidths !== 0
     },
@@ -343,7 +330,6 @@ export default defineComponent({
             pointRadiusMinPixels: 2,
             // pointRadiusMaxPixels: 50,
             stroked: this.isStroked,
-            // useDevicePixels: this.isTakingScreenshot,
             // fp64: false,
             // material: false,
             updateTriggers: {
@@ -436,11 +422,14 @@ export default defineComponent({
     }
 
     const container = `map-${this.viewId}`
-    const center = this.globalState.viewState.center as any
-    const zoom = this.globalState.viewState.zoom
+    const viewState = this.globalState.viewState as any
+    // The store always derives a {lng, lat} center from longitude/latitude
+    // when one isn't supplied (see setMapCamera in store.ts), so mirror that
+    // here rather than dereferencing an undefined viewState.center.
+    const center = viewState.center ?? { lng: viewState.longitude, lat: viewState.latitude }
+    const zoom = viewState.zoom
 
     // check coords before failing
-    console.log({ center, zoom })
     if (center.lng > 180 || center.lat > 90) {
       this.$emit('error', 'Invalid coordinates: long/lat out of range')
       return
@@ -452,7 +441,11 @@ export default defineComponent({
       style,
       center,
       zoom,
-      canvasContextAttributes: { preserveDrawingBuffer: true },
+      // preserveDrawingBuffer defaults to false. Keeping the default (rather
+      // than forcing it true for canvas screenshots) lets Chrome free each
+      // rendered frame's GPU buffer, which avoids WebGL memory exhaustion
+      // when drawing large shapefile networks.
+      canvasContextAttributes: { preserveDrawingBuffer: false },
     })
 
     this.mymap.on('move', this.handleMove)

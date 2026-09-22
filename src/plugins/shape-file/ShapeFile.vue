@@ -72,7 +72,6 @@
         :opacity="(sliderOpacity / 100) * (sliderOpacity / 100)"
         :pointRadii="dataPointRadii"
         :redraw="redraw"
-        :screenshot="triggerScreenshot"
         :show3dBuildings="show3dBuildings"
         :viewId="layerId"
         @error="$emit('error', $event)"
@@ -105,7 +104,6 @@
         :legendStore="legendStore"
         :filterDefinitions="currentUIFilterDefinitions"
         @update="changeConfiguration"
-        @screenshot="takeScreenshot"
         @toggleLegend="showLegend=!showLegend"
       )
 
@@ -290,7 +288,6 @@ const MyComponent = defineComponent({
       needsInitialMapExtent: true,
       datasetJoinColumn: '',
       featureJoinColumn: '',
-      triggerScreenshot: 0,
       redraw: 0,
 
       datasetKeyToFilename: {} as any,
@@ -490,11 +487,6 @@ const MyComponent = defineComponent({
       const deltaX = this.isDraggingDivider - e.clientX
       this.legendSectionWidth = Math.max(0, this.dragStartWidth + deltaX)
       // localStorage.setItem('leftPanelWidth', `${this.legendSectionWidth}`)
-    },
-
-    // incrementing screenshot count triggers the screenshot.
-    takeScreenshot() {
-      this.triggerScreenshot++
     },
 
     setEmbeddedMode() {
