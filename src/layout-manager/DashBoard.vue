@@ -429,7 +429,9 @@ export default defineComponent({
       this.rows = []
       this.rowFlexWeights = []
 
-      // to give browser time to teardown: 0.2 seconds delay
+      // to give browser time to teardown: 0.5 seconds delay so WebGL
+      // contexts/GPU buffers from the previous subtab are freed before
+      // the next heavy webmap mounts (avoids stacked memory spikes).
       setTimeout(() => {
         this.dashboardTabWithDelay = index
         const { subtab, ...queryWithoutSubtab } = this.$route.query
@@ -441,7 +443,7 @@ export default defineComponent({
           this.$router.replace({ query: {} })
         }
         this.selectTabLayout()
-      }, 200)
+      }, 500)
     },
 
     async setupDashboard() {

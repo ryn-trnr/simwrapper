@@ -4,12 +4,12 @@
 // Get a table of links with Anode Bnode and properties
 
 import { XMLParser } from 'fast-xml-parser'
-import reproject from 'reproject'
 import * as shapefile from 'shapefile'
 import * as ZStd from 'zstd-wasm-decoder'
 
 import Coords from '@/js/Coords'
 import HTTPFileSystem from '@/js/HTTPFileSystem'
+import { sidecarName } from '@/js/streamShapefile'
 import { DataTable, FileSystemConfig } from '@/Globals'
 import { gUnzip, findMatchingGlobInFiles } from '@/js/util'
 
@@ -57,7 +57,7 @@ onmessage = async function (e) {
         memorySafeXMLParser()
         break
       case NetworkFormat.SFCTA:
-        parseSFCTANetworkAndPostResults(e.data.crs)
+        streamSFCTANetwork(e.data.crs)
         break
       default:
         console.log('oops')
@@ -119,94 +119,124 @@ async function fetchSFCTANetwork(filePath: string, fileSystem: FileSystemConfig,
 
   _fileApi = new HTTPFileSystem(fileSystem)
   _fileSystemConfig = fileSystem
-
-  const url = filePath
+  _filePath = filePath
   _content = {}
 
-  // first, get shp/dbf files
-  try {
-    const shpPromise = _fileApi.getFileBlob(url)
-    const dbfPromise = _fileApi.getFileBlob(url.replace('.shp', '.dbf'))
-    await Promise.all([shpPromise, dbfPromise])
-
-    const shpBlob = await (await shpPromise)?.arrayBuffer()
-    const dbfBlob = await (await dbfPromise)?.arrayBuffer()
-    if (!shpBlob || !dbfBlob) return []
-
-    _content = await shapefile.read(shpBlob, dbfBlob)
-  } catch (e) {
-    console.error(e)
-    return []
-  }
-
-  // next, see if there is a .prj file with projection information
+  // Resolve the projection BEFORE streaming, so we can reproject each feature
+  // as it arrives instead of buffering the whole shapefile.
   let projection = vizDetails.projection
   if (!projection) {
     try {
-      projection = await _fileApi.getFileText(url.replace('.shp', '.prj'))
+      projection = await _fileApi.getFileText(sidecarName(filePath, 'prj'))
     } catch (e) {
       // need a projection to continue; post message asking user.
       postMessage({ promptUserForCRS: 'crs needed' })
       return
     }
   }
-  // if we got here, then we got a valid projection.
-  console.log(projection)
-  parseSFCTANetworkAndPostResults(projection)
+
+  await streamSFCTANetwork(projection)
 }
 
-async function parseSFCTANetworkAndPostResults(projection: string) {
+async function streamSFCTANetwork(projection: string) {
   const guessCRS = Coords.guessProjection(projection)
+  const needsProjection = !!guessCRS && guessCRS !== 'EPSG:4326' && guessCRS !== 'WGS84'
+  // one converter for the whole file
+  const project = needsProjection ? Coords.getTransformer(guessCRS, 'WGS84') : null
 
-  // then, reproject if we have a projection
-  if (guessCRS && guessCRS !== 'EPSG:4326') {
-    _content = reproject.toWgs84(_content, guessCRS, Coords.allEPSGs)
+  // Stream the .shp (and .dbf for link ids) straight from the file store.
+  let shpStream: ReadableStream | undefined
+  let dbfStream: ReadableStream | undefined
+  try {
+    shpStream = await _fileApi.getFileStream(_filePath)
+    dbfStream = await _fileApi.getFileStream(sidecarName(_filePath, 'dbf'))
+  } catch (e) {
+    console.error(e)
+    postMessage({ error: 'Error loading ' + _filePath })
+    return
+  }
+  if (!shpStream) {
+    postMessage({ error: 'Error loading ' + _filePath })
+    return
   }
 
-  // OK we now have LINKS in geojson.features!! ----------------------------------------
-  // console.log({ _content })
+  let source: any
+  try {
+    source = await (shapefile as any).open(shpStream, dbfStream)
+  } catch (e) {
+    console.error(e)
+    postMessage({ error: 'Could not parse shapefile ' + _filePath })
+    return
+  }
 
   const linkIds: any = []
-  // const links = [] as any[]
-  let numLinks = 0
+  const srcLng: number[] = []
+  const srcLat: number[] = []
+  const dstLng: number[] = []
+  const dstLat: number[] = []
 
   try {
-    // build link array from columnar data
-    // numLinks = dataTable.AB.values.length
-    numLinks = _content.features.length
-    // const keys = Object.keys(dataTable)
-    for (const feature of _content.features) {
-      linkIds.push(feature.properties.AB)
+    while (true) {
+      const result = await source.read()
+      if (result.done) break
+
+      const feature = result.value
+      if (!feature || !feature.geometry) continue
+
+      const coords = feature.geometry.coordinates
+      if (!coords || !coords.length) continue
+
+      const first = coords[0]
+      const last = coords[coords.length - 1]
+      if (!first || !last) continue
+
+      let sx = first[0]
+      let sy = first[1]
+      let ex = last[0]
+      let ey = last[1]
+
+      if (project) {
+        const s = project.forward([sx, sy]) as number[]
+        sx = s[0]
+        sy = s[1]
+        const d = project.forward([ex, ey]) as number[]
+        ex = d[0]
+        ey = d[1]
+      }
+
+      linkIds.push(feature.properties?.AB)
+      srcLng.push(sx)
+      srcLat.push(sy)
+      dstLng.push(ex)
+      dstLat.push(ey)
     }
   } catch (err) {
     const e = err as any
-    postMessage({ error: '' + e.error })
+    postMessage({ error: '' + (e?.error || e) })
+    return
+  } finally {
+    try {
+      await source.cancel()
+    } catch (e) {
+      // already closed
+    }
   }
 
-  const source: Float32Array = new Float32Array(2 * numLinks)
-  const dest: Float32Array = new Float32Array(2 * numLinks)
+  const numLinks = linkIds.length
+  const sourceCoords = new Float32Array(2 * numLinks)
+  const destCoords = new Float32Array(2 * numLinks)
 
-  let warnings = 0
-
-  // link source/dest coordinate lookup
   for (let j = 0; j < numLinks; j++) {
-    // TODO shapefile has curvy lines; we are going to FLATTEN them
-    // for now, just to get this up and running quickly.
-    // Correct way to do this: use GeoJsonLayer, but that means rewriting
-    // the centerline stuff from the LineOffsetLayer that we custom wrote :-(
-    const lastcoord = _content.features[j].geometry.coordinates.length - 1
-    source[2 * j + 0] = _content.features[j].geometry.coordinates[0][0]
-    source[2 * j + 1] = _content.features[j].geometry.coordinates[0][1]
-    dest[2 * j + 0] = _content.features[j].geometry.coordinates[lastcoord][0]
-    dest[2 * j + 1] = _content.features[j].geometry.coordinates[lastcoord][1]
+    sourceCoords[2 * j + 0] = srcLng[j]
+    sourceCoords[2 * j + 1] = srcLat[j]
+    destCoords[2 * j + 0] = dstLng[j]
+    destCoords[2 * j + 1] = dstLat[j]
   }
 
   // all done! post the links
-  const links = { source, dest, linkIds, projection: guessCRS }
+  const links = { source: sourceCoords, dest: destCoords, linkIds, projection: guessCRS }
 
   postMessage({ links }, [links.source.buffer, links.dest.buffer])
-
-  if (warnings) console.error('FIX YOUR NETWORK:', warnings, 'LINKS WITH NODE LOOKUP PROBLEMS')
 }
 
 async function memorySafeXMLParser(rawData?: Uint8Array, options?: any) {

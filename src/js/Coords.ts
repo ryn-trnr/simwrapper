@@ -58,6 +58,15 @@ function toLngLat(projection: string, p: any) {
 }
 
 /**
+ * Build a reusable proj4 converter. Use this instead of calling toLngLat()
+ * for every coordinate: toLngLat() constructs a fresh Projection each call,
+ * which is extremely expensive across millions of points.
+ */
+function getTransformer(from: string, to: string = 'WGS84') {
+  return proj4(from, to)
+}
+
+/**
  *
  * @param def Whatever random string you have for your projection
  * @returns EPSG code in "EPSG:1234" format
@@ -92,4 +101,4 @@ function guessProjection(definition: string) {
   return ''
 }
 
-export default { toLngLat, guessProjection, allEPSGs }
+export default { toLngLat, getTransformer, guessProjection, allEPSGs }

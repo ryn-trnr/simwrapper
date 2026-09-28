@@ -572,7 +572,9 @@ export default defineComponent({
 
       this.activeTab = tab
 
-      // to give browser time to teardown
+      // to give browser time to teardown: 0.5 seconds so WebGL contexts and
+      // GPU buffers from the previous dashboard are fully released before
+      // the next heavy dashboard (webmap) mounts.
       setTimeout(() => {
         this.dashboardTabWithDelay = tab
         if (index) {
@@ -580,7 +582,7 @@ export default defineComponent({
         } else {
           this.$router.replace({ query: {} })
         }
-      }, 125)
+      }, 500)
 
       this.showDropDown = false
     },

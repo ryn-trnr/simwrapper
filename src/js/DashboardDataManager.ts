@@ -319,6 +319,28 @@ export default class DashboardDataManager {
   }
 
   /**
+   * Register a DataTable that was built directly from a shapefile's DBF sidecar
+   * while streaming the geometry. This avoids structured-cloning the entire
+   * feature-properties array into a Worker (and back), which was a major source
+   * of peak memory when loading large shapefiles.
+   *
+   * @param fullpath name of the shape/geo file
+   * @param dataTable columnar properties table
+   * @param config viz config (used for subfolder + keep/drop)
+   */
+  public async setFeaturePropertiesFromDatatable(
+    fullpath: string,
+    dataTable: DataTable,
+    config: any
+  ) {
+    const namePart = fullpath.substring(fullpath.lastIndexOf('/') + 1)
+    const key = `${config?.subfolder || ''}/${namePart}`
+
+    this.setPreloadedDataset({ key, dataTable })
+    return dataTable
+  }
+
+  /**
    *  Register an existing in-memory DataTable as a dataset in this Dashboard
    * @param props key, dataTable, and filename associated with this DataTable
    */

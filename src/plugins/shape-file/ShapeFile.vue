@@ -153,9 +153,7 @@
 import { defineComponent } from 'vue'
 import type { PropType } from 'vue'
 
-import * as shapefile from 'shapefile'
 import * as turf from '@turf/turf'
-import reproject from 'reproject'
 import Sanitize from 'sanitize-filename'
 import YAML from 'yaml'
 
@@ -173,7 +171,6 @@ import {
   DataType,
   FileSystemConfig,
   VisualizationPlugin,
-  DEFAULT_PROJECTION,
   Status,
 } from '@/Globals'
 
@@ -189,6 +186,7 @@ import DrawingTool from '@/components/DrawingTool/DrawingTool.vue'
 
 import HTTPFileSystem from '@/js/HTTPFileSystem'
 import DashboardDataManager, { FilterDefinition, checkFilterValue } from '@/js/DashboardDataManager'
+import { streamShapefileFeatures } from '@/js/streamShapefile'
 import { arrayBufferToBase64 } from '@/js/util'
 import { CircleRadiusDefinition } from '@/components/viz-configurator/CircleRadius.vue'
 import { FillColorDefinition } from '@/components/viz-configurator/FillColors.vue'
@@ -2300,6 +2298,7 @@ const MyComponent = defineComponent({
 
       let featureProperties = [] as any[]
       let boundaries: any[]
+      let streamedDataTable: DataTable | null = null
 
       try {
         this.statusText = 'Loading features...'
@@ -2316,9 +2315,11 @@ const MyComponent = defineComponent({
           const text = new TextDecoder().decode(unzipped)
           boundaries = JSON.parse(text).features
         } else if (filename.toLocaleLowerCase().endsWith('.shp')) {
-          // shapefile!
+          // shapefile! streamed straight into geometry + a properties DataTable
           console.log('--SHP')
-          boundaries = await this.loadShapefileFeatures(filename)
+          const streamed = await this.loadShapefileFeatures(filename, shapeConfig)
+          boundaries = streamed.boundaries
+          streamedDataTable = streamed.dataTable
         } else if (filename.toLocaleLowerCase().indexOf('.gmns') > -1) {
           // GMNS!
           console.log('--GMNS')
@@ -2354,14 +2355,18 @@ const MyComponent = defineComponent({
 
         // for a big speedup, move properties to its own nabob
         boundaries.forEach(b => {
-          const properties = b.properties ?? {}
-          // geojson sometimes has "id" outside of properties:
-          if ('id' in b) properties.id = b.id
-          // create a new properties object for each row;
-          // push this new property object to the featureProperties array
-          featureProperties.push({ ...properties })
-          // clear out actual feature properties; they are now in featureProperties instead
-          b.properties = {}
+          // Shapefile properties were already streamed directly into a
+          // DataTable, so we must not build a second in-memory copy here.
+          if (!streamedDataTable) {
+            const properties = b.properties ?? {}
+            // geojson sometimes has "id" outside of properties:
+            if ('id' in b) properties.id = b.id
+            // create a new properties object for each row;
+            // push this new property object to the featureProperties array
+            featureProperties.push({ ...properties })
+            // clear out actual feature properties; they are now in featureProperties instead
+            b.properties = {}
+          }
 
           // points?
           if (b.geometry.type == 'Point' || b.geometry.type == 'MultiPoint') {
@@ -2386,7 +2391,15 @@ const MyComponent = defineComponent({
         })
 
         // set feature properties as a data source
-        await this.setFeaturePropertiesAsDataSource(filename, [...featureProperties], shapeConfig)
+        if (streamedDataTable) {
+          await this.setStreamedShapefileDataSource(filename, streamedDataTable, shapeConfig)
+        } else {
+          await this.setFeaturePropertiesAsDataSource(
+            filename,
+            [...featureProperties],
+            shapeConfig
+          )
+        }
         this.incrementLoadProgress()
 
         // hide polygon/point buttons and opacity if we have no polygons or we do have points
@@ -2418,6 +2431,31 @@ const MyComponent = defineComponent({
 
       if (!this.boundaries || this.boundaries.length === 0) {
         throw Error(`No "features" found in shapes file`)
+      }
+    },
+
+    async setStreamedShapefileDataSource(filename: string, dataTable: DataTable, config: any) {
+      // register the already-built DataTable; no Worker round-trip / structured
+      // clone of the whole feature-properties array
+      const table = await this.myDataManager.setFeaturePropertiesFromDatatable(
+        filename,
+        dataTable,
+        config
+      )
+      this.boundaryDataTable = table
+
+      const datasetId = filename.substring(1 + filename.lastIndexOf('/'))
+      this.datasets[datasetId] = table
+
+      this.vizDetails.datasets[datasetId] = {
+        file: datasetId,
+        join: this.datasetJoinColumn,
+      } as any
+
+      this.config.datasets = Object.assign({}, this.vizDetails.datasets)
+
+      if (!this.vizDetails.tooltip || !this.vizDetails.tooltip.length) {
+        this.tooltipDesiredColumns = this.setupTooltipDesiredColumns()
       }
     },
 
@@ -2595,75 +2633,36 @@ const MyComponent = defineComponent({
       }
     },
 
-    async loadShapefileFeatures(filename: string) {
+    async loadShapefileFeatures(filename: string, shapeConfig?: any) {
       this.statusText = 'Loading shapefile...'
       console.log('loading', filename)
 
-      const url = `${this.subfolder}/${filename}`
-      let shpPromise, dbfPromise, dbfBlob
-
-      // first, get shp/dbf files
-      let geojson: any = {}
+      // Stream the shapefile straight from the file store. This avoids buffering
+      // the whole .shp/.dbf (Blob + ArrayBuffer) and building a full GeoJSON
+      // FeatureCollection, plus a duplicate featureProperties array, in memory.
+      let result
       try {
-        shpPromise = await this.fileApi.getFileBlob(url)
-      } catch (e) {
-        this.$emit('error', 'Error loading ' + url)
-        return []
-      }
-
-      try {
-        let dbfFilename = url
-        if (dbfFilename.endsWith('.shp')) dbfFilename = dbfFilename.slice(0, -4) + '.dbf'
-        if (dbfFilename.endsWith('.SHP')) dbfFilename = dbfFilename.slice(0, -4) + '.DBF'
-        if (dbfFilename.endsWith('.Shp')) dbfFilename = dbfFilename.slice(0, -4) + '.Dbf'
-        dbfPromise = await this.fileApi.getFileBlob(dbfFilename)
-        dbfBlob = await (await dbfPromise)?.arrayBuffer()
-      } catch {
-        // no DBF: we will live
-      }
-
-      try {
-        const shpBlob = await (await shpPromise)?.arrayBuffer()
-        if (!shpBlob) return []
-
-        this.statusText = 'Generating shapes...'
-
-        geojson = await shapefile.read(shpBlob, dbfBlob)
-
-        // filter out features that don't have geometry: they can't be mapped
-        geojson.features = geojson.features.filter((f: any) => !!f.geometry)
-        this.statusText = ''
+        result = await streamShapefileFeatures({
+          fileApi: this.fileApi,
+          subfolder: this.subfolder,
+          filename,
+          projection: this.vizDetails.projection,
+          drop: shapeConfig?.drop,
+          keep: shapeConfig?.keep,
+          onProgress: status => {
+            this.statusText = status
+          },
+        })
       } catch (e) {
         console.error(e)
-        this.$emit('error', `Error loading shapefile ${url}`)
-        return []
+        this.$emit('error', `Error loading shapefile ${filename}`)
+        return { boundaries: [], dataTable: {} as DataTable }
       }
 
-      // See if there is a .prj file with projection information
-      let projection = DEFAULT_PROJECTION
-      let prjFilename = url
-      if (prjFilename.endsWith('.shp')) prjFilename = prjFilename.slice(0, -4) + '.prj'
-      if (prjFilename.endsWith('.SHP')) prjFilename = prjFilename.slice(0, -4) + '.PRJ'
-      if (prjFilename.endsWith('.Shp')) prjFilename = prjFilename.slice(0, -4) + '.Prj'
-      try {
-        projection = await this.fileApi.getFileText(prjFilename)
-      } catch (e) {
-        console.error('' + e)
-        // lol we can live without a projection right? ;-O
-      }
+      this.statusText = ''
 
-      // Allow user to override .PRJ projection with YAML config
-      const guessCRS = this.vizDetails.projection || Coords.guessProjection(projection)
-
-      // console.log({ guessCRS })
-
-      // then, reproject if we have a .prj file
-      if (guessCRS) {
-        this.statusText = 'Projecting coordinates...'
-        await this.$nextTick()
-        geojson = reproject.toWgs84(geojson, guessCRS, Coords.allEPSGs)
-        this.statusText = ''
-      }
+      const { boundaries } = result
+      if (!boundaries.length) return result
 
       function getFirstPoint(thing: any): any[] {
         if (Array.isArray(thing[0])) return getFirstPoint(thing[0])
@@ -2671,16 +2670,15 @@ const MyComponent = defineComponent({
       }
 
       // check if we have lon/lat
-      const firstPoint = getFirstPoint(geojson.features[0].geometry.coordinates)
+      const firstPoint = getFirstPoint(boundaries[0].geometry.coordinates)
       if (Math.abs(firstPoint[0]) > 180 || Math.abs(firstPoint[1]) > 90) {
         // this ain't lon/lat
         const msg = `Coordinates not lon/lat. Try adding projection to YAML, or provide a .prj file`
         this.$emit('error', msg)
         this.statusText = ''
-        return []
       }
 
-      return geojson.features as any[]
+      return result
     },
 
     async loadDatasets() {

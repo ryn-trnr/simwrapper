@@ -1,15 +1,12 @@
-import * as shapefile from 'shapefile'
 import * as turf from '@turf/turf'
 import * as d3ScaleChromatic from 'd3-scale-chromatic'
-import reproject from 'reproject'
 import { scaleSequential, scaleOrdinal } from 'd3-scale'
 import { rgb } from 'd3-color'
 import { GeoJsonLayer } from '@deck.gl/layers'
 
-import Coords from '@/js/Coords'
 import Geotools from '@/js/geo-utils'
 import ColorWidthSymbologizer, { buildRGBfromHexCodes } from '@/js/ColorsAndWidths'
-import { DEFAULT_PROJECTION } from '@/Globals'
+import { streamShapefileFeatures } from '@/js/streamShapefile'
 
 export interface BackgroundLayer {
   features: any[]
@@ -75,63 +72,17 @@ export default class BackgroundLayers {
   async loadShapefileFeatures(filename: string) {
     console.log('loading', filename)
 
-    const url = `${this.subfolder}/${filename}`
-    let shpPromise, dbfPromise, dbfBlob
+    // Stream the shapefile, keeping properties on the features (they are used
+    // for labels / fills). No full-file buffer or FeatureCollection copy.
+    const result = await streamShapefileFeatures({
+      fileApi: this.fileApi,
+      subfolder: this.subfolder,
+      filename,
+      projection: this.vizDetails.projection,
+      keepProperties: true,
+    })
 
-    // first, get shp/dbf files
-    let geojson: any = {}
-    try {
-      shpPromise = await this.fileApi.getFileBlob(url)
-    } catch (e) {
-      throw Error('Error loading ' + url)
-    }
-
-    try {
-      let dbfFilename = url
-      if (dbfFilename.endsWith('.shp')) dbfFilename = dbfFilename.slice(0, -4) + '.dbf'
-      if (dbfFilename.endsWith('.SHP')) dbfFilename = dbfFilename.slice(0, -4) + '.DBF'
-      if (dbfFilename.endsWith('.Shp')) dbfFilename = dbfFilename.slice(0, -4) + '.Dbf'
-      dbfPromise = await this.fileApi.getFileBlob(dbfFilename)
-      dbfBlob = await (await dbfPromise)?.arrayBuffer()
-    } catch {
-      // no DBF: we will live
-    }
-
-    try {
-      const shpBlob = await (await shpPromise)?.arrayBuffer()
-      if (!shpBlob) return []
-
-      geojson = await shapefile.read(shpBlob, dbfBlob)
-
-      // filter out features that don't have geometry: they can't be mapped
-      geojson.features = geojson.features.filter((f: any) => !!f.geometry)
-    } catch (e) {
-      console.error(e)
-      throw Error(`Error loading shapefile ${url}`)
-    }
-
-    // See if there is a .prj file with projection information
-    let projection = DEFAULT_PROJECTION
-    let prjFilename = url
-    if (prjFilename.endsWith('.shp')) prjFilename = prjFilename.slice(0, -4) + '.prj'
-    if (prjFilename.endsWith('.SHP')) prjFilename = prjFilename.slice(0, -4) + '.PRJ'
-    if (prjFilename.endsWith('.Shp')) prjFilename = prjFilename.slice(0, -4) + '.Prj'
-    try {
-      projection = await this.fileApi.getFileText(prjFilename)
-    } catch (e) {
-      console.error('' + e)
-      // lol we can live without a projection right? ;-O
-    }
-
-    // Allow user to override .PRJ projection with YAML config
-    const guessCRS = this.vizDetails.projection || Coords.guessProjection(projection)
-
-    // console.log({ guessCRS })
-
-    // then, reproject if we have a .prj file
-    if (guessCRS) {
-      geojson = reproject.toWgs84(geojson, guessCRS, Coords.allEPSGs)
-    }
+    const features = result.boundaries
 
     function getFirstPoint(thing: any): any[] {
       if (Array.isArray(thing[0])) return getFirstPoint(thing[0])
@@ -139,14 +90,15 @@ export default class BackgroundLayers {
     }
 
     // check if we have lon/lat
-    const firstPoint = getFirstPoint(geojson.features[0].geometry.coordinates)
-    if (Math.abs(firstPoint[0]) > 180 || Math.abs(firstPoint[1]) > 90) {
-      // this ain't lon/lat
-      const msg = `Coordinates not lon/lat. Try adding projection to YAML, or provide a .prj file`
-      throw Error(msg)
+    if (features.length) {
+      const firstPoint = getFirstPoint(features[0].geometry.coordinates)
+      if (Math.abs(firstPoint[0]) > 180 || Math.abs(firstPoint[1]) > 90) {
+        const msg = `Coordinates not lon/lat. Try adding projection to YAML, or provide a .prj file`
+        throw Error(msg)
+      }
     }
 
-    return geojson.features as any[]
+    return features as any[]
   }
 
   async loadGeoPackage(filename: string) {

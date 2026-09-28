@@ -441,6 +441,11 @@ export default defineComponent({
       style,
       center,
       zoom,
+      // Render at 1 CSS pixel per screen pixel instead of the device pixel
+      // ratio. On HiDPI/retina laptops this cuts the WebGL canvas (and thus
+      // GPU memory for both maplibre AND the interleaved deck.gl overlay)
+      // by 4-9x, which is the single biggest lever against tab crashes.
+      pixelRatio: 1,
       // preserveDrawingBuffer defaults to false. Keeping the default (rather
       // than forcing it true for canvas screenshots) lets Chrome free each
       // rendered frame's GPU buffer, which avoids WebGL memory exhaustion

@@ -122,24 +122,28 @@ class HTTPFileSystem {
     return path
   }
 
-  private async _getFileResponse(scaryPath: string): Promise<Response> {
+  private async _getFileResponse(
+    scaryPath: string,
+    options?: { maxBytes: number },
+    headers?: Record<string, string>
+  ): Promise<Response> {
     switch (this.type) {
       case FileSystemType.CHROME:
-        return this._getFileFromChromeFileSystem(scaryPath)
+        return this._getFileFromChromeFileSystem(scaryPath, options)
       case FileSystemType.GITHUB:
         return this._getFileFromGitHub(scaryPath)
       case FileSystemType.LAKEFS:
-        return this._getFileFromLakeFS(scaryPath)
+        return this._getFileFromLakeFS(scaryPath, options)
       case FileSystemType.FLASK:
         return this._getFileFromAzure(scaryPath)
       case FileSystemType.S3:
         // S3 buckets use standard HTTP GET for files
-        return this._getFileFetchResponse(scaryPath)
+        return this._getFileFetchResponse(scaryPath, options, headers)
       case FileSystemType.AWS:
-        return this._getFileFetchResponseAWS(scaryPath)
+        return this._getFileFetchResponseAWS(scaryPath, options, headers)
       case FileSystemType.FETCH:
       default:
-        return this._getFileFetchResponse(scaryPath)
+        return this._getFileFetchResponse(scaryPath, options, headers)
     }
   }
 
@@ -181,10 +185,11 @@ class HTTPFileSystem {
 
   private async _getFileFetchResponse(
     scaryPath: string,
-    options?: { maxBytes: number }
+    options?: { maxBytes: number },
+    extraHeaders?: Record<string, string>
   ): Promise<Response> {
     const path = this.cleanURL(scaryPath)
-    const headers: any = {}
+    const headers: any = { ...(extraHeaders || {}) }
 
     if (options?.maxBytes) headers.Range = `bytes=0-${options.maxBytes - 1}`
 
@@ -205,7 +210,11 @@ class HTTPFileSystem {
     return response
   }
 
-  private async _getFileFetchResponseAWS(scaryPath: string, headers: Record<string, string> = {}): Promise<Response> {
+  private async _getFileFetchResponseAWS(
+    scaryPath: string,
+    options?: { maxBytes: number },
+    headers: Record<string, string> = {}
+  ): Promise<Response> {
       // Normalize path - remove leading and trailing slashes and double slashes
       scaryPath = scaryPath.replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
 
@@ -215,6 +224,8 @@ class HTTPFileSystem {
 
       // Prepare headers
       const requestHeaders: Record<string, string> = { ...headers };
+
+      if (options?.maxBytes) requestHeaders['Range'] = `bytes=0-${options.maxBytes - 1}`;
 
       // Make the authenticated request
       try {
@@ -502,12 +513,27 @@ class HTTPFileSystem {
     return JSON.parse(text)
   }
 
-  async getFileBlob(scaryPath: string): Promise<Blob> {
+  async getFileBlob(
+    scaryPath: string,
+    retries = 0,
+    headers: Record<string, string> = {}
+  ): Promise<Blob> {
     // This can throw lots of errors; we are not going to catch them
     // here so the code further up can deal with errors properly.
     // "Throw early, catch late."
-    const response = await this._getFileResponse(scaryPath)
-    return response.blob()
+    let lastError: any
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await this._getFileResponse(scaryPath, undefined, headers)
+        return await response.blob()
+      } catch (e) {
+        lastError = e
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)))
+        }
+      }
+    }
+    throw lastError
   }
 
   async probeXmlFileType(path: string) {
@@ -557,7 +583,9 @@ class HTTPFileSystem {
         stream = await this._getFileFromLakeFS(scaryPath, options).then(response => response.body)
         return stream as any
       case FileSystemType.AWS:
-        stream = await this._getFileFetchResponseAWS(scaryPath).then(response => response.body)
+        stream = await this._getFileFetchResponseAWS(scaryPath, options).then(
+          response => response.body
+        )
         return stream as any
       default:
         throw Error(`FileSystemType ${this.type} not implemented`)
