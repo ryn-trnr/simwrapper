@@ -99,6 +99,12 @@ rel="stylesheet"
         window.fetch = function () {
           var args = arguments;
           var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+          // Only dashboard YAMLs need colour patching. Short-circuit everything
+          // else so large shapefile/CSV bodies (network .shp/.dbf, per-link
+          // CSVs) are never buffered into memory -- SimWrapper streams those.
+          if (!/\.ya?ml(\?|$)/i.test(url)) {
+            return originalFetch.apply(window, args);
+          }
           return originalFetch.apply(window, args).then(function (response) {
             if (!response.ok) return response;
             return response

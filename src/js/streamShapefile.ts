@@ -58,6 +58,40 @@ function splitColumns(value: string[] | string | undefined): string[] {
   return Array.isArray(value) ? value : value.split(',')
 }
 
+/**
+ * Session cache for decoded shapefiles (geometry + DBF DataTable).
+ *
+ * FASTrack dashboards mount several webmap panels that all load the SAME
+ * network/SA1 .shp -- e.g. the Mode Shift dashboard loads its ~100k-link
+ * network three times. Decoding + reprojecting that file once and sharing the
+ * frozen geometry with per-map feature shells cuts memory and load time
+ * substantially.
+ *
+ * Only the main-boundary path (keepProperties: false) is cached: background
+ * layers keep and mutate their properties per layer, so they must not share.
+ * The cache is small and LRU-evicted so switching scenarios doesn't pin old
+ * networks in memory forever.
+ */
+interface CachedShapefile {
+  /** one frozen geometry object per feature (shared across callers) */
+  geometry: any[]
+  /** optional top-level feature ids, aligned with geometry */
+  ids: (string | number | undefined)[]
+  dataTable: DataTable
+  crs: string
+}
+
+const shapefileCache = new Map<string, CachedShapefile>()
+const SHAPEFILE_CACHE_MAX = 4
+
+function deepFreeze(value: any): any {
+  if (value && (Array.isArray(value) || typeof value === 'object')) {
+    Object.freeze(value)
+    for (const key of Object.keys(value)) deepFreeze(value[key])
+  }
+  return value
+}
+
 /** mutate a geometry's coordinates to WGS84 in place (no clone) */
 function projectGeometry(geometry: any, transformer: any) {
   if (!geometry || !transformer) return
@@ -110,6 +144,32 @@ export async function streamShapefileFeatures(
   // build ONE converter and reuse it for every coordinate (calling proj4 per
   // point re-parses the projection and explodes memory/CPU on large files)
   const project = needsProjection ? Coords.getTransformer(crs, 'WGS84') : null
+
+  // ---- share decoded files across dashboard panels -------------------------
+  // e.g. the Mode Shift dashboard mounts 3 webmaps that all load the same
+  // network .shp; decode it once and reuse the frozen geometry.
+  let cacheKey = ''
+  if (!keepProperties) {
+    const dropKey = splitColumns(options.drop).sort().join(',')
+    const keepKey = splitColumns(options.keep).sort().join(',')
+    cacheKey = `${relPath}|${crs}|${highPrecision ? '64' : '32'}|${dropKey}|${keepKey}`
+
+    const cached = shapefileCache.get(cacheKey)
+    if (cached) {
+      onProgress?.('Loading shapefile (cached)...')
+      // bump LRU freshness
+      shapefileCache.delete(cacheKey)
+      shapefileCache.set(cacheKey, cached)
+      // fresh shells referencing the shared frozen geometry; empty properties
+      // so one map's tooltip writes never leak into another map's features
+      const boundaries = cached.geometry.map((g, i) => {
+        const f = { type: 'Feature', properties: {}, geometry: g } as any
+        if (cached.ids[i] !== undefined) f.id = cached.ids[i]
+        return f
+      })
+      return { boundaries, dataTable: cached.dataTable, crs: cached.crs }
+    }
+  }
 
   onProgress?.('Loading shapefile...')
 
@@ -233,6 +293,21 @@ export async function streamShapefileFeatures(
         columns[name] = []
       }
     }
+  }
+
+  // Store a shared, frozen copy of the geometry graph so later loads of the
+  // same file in other dashboard panels can skip download + parse + reproject.
+  if (!keepProperties && cacheKey) {
+    const geometry = boundaries.map(f => {
+      if (f.geometry) deepFreeze(f.geometry)
+      return f.geometry
+    })
+    const ids = boundaries.map(f => f.id)
+    if (shapefileCache.size >= SHAPEFILE_CACHE_MAX) {
+      const oldestKey = shapefileCache.keys().next().value
+      if (oldestKey !== undefined) shapefileCache.delete(oldestKey)
+    }
+    shapefileCache.set(cacheKey, { geometry, ids, dataTable, crs })
   }
 
   return { boundaries, dataTable, crs }

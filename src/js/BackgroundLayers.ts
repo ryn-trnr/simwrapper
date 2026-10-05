@@ -8,6 +8,21 @@ import Geotools from '@/js/geo-utils'
 import ColorWidthSymbologizer, { buildRGBfromHexCodes } from '@/js/ColorsAndWidths'
 import { streamShapefileFeatures } from '@/js/streamShapefile'
 
+/**
+ * Freeze background features once they're fully configured (fill + labels have
+ * been applied in initialLoad). Vue 2's observe() skips non-extensible values,
+ * so this keeps the repeated catchment loads (3 webmaps in the Mode Shift
+ * dashboard all load the same SA1 boundary) from being wrapped in per-vertex
+ * Observer/Dep objects -- a major source of the "Aw, Snap" tab crashes.
+ */
+function deepFreeze(value: any): any {
+  if (value && (Array.isArray(value) || typeof value === 'object')) {
+    Object.freeze(value)
+    for (const key of Object.keys(value)) deepFreeze(value[key])
+  }
+  return value
+}
+
 export interface BackgroundLayer {
   features: any[]
   opacity: number
@@ -206,6 +221,10 @@ export default class BackgroundLayers {
       if ('ontop' in layerDetails) onTop = !!layerDetails.ontop
 
       // console.log('FINAL FEATURES', features)
+
+      // Features are now final (fill colors + labels applied above). Freeze
+      // them so Vue never wraps the geometry in per-coordinate Observers.
+      for (const feature of features) deepFreeze(feature)
 
       const details = {
         features,

@@ -203,6 +203,36 @@ import type { BackgroundLayer } from '@/js/BackgroundLayers'
 
 import IconBlueRamp from './assets/icon-blue-ramp.png'
 
+/**
+ * Deep-freeze boundary geometry so Vue 2's reactive observe() skips the
+ * (potentially enormous) coordinate trees. observe() bails out on
+ * non-extensible values, so this eliminates the per-coordinate Observer/Dep
+ * object explosion that can push large webmaps (100k+ links / SA1 catchments)
+ * over the tab's memory budget right at the "Adding boundaries to map" step.
+ *
+ * Features are static after load: shapefile properties live in a columnar
+ * DataTable and filters/colors are applied via indexed typed arrays. The one
+ * post-load mutation -- prepareTooltipData() writing tooltip columns into
+ * feature.properties -- is why the feature's `properties` object is
+ * deliberately left unfrozen.
+ */
+function deepFreeze(value: any): any {
+  if (value && (Array.isArray(value) || typeof value === 'object')) {
+    Object.freeze(value)
+    for (const key of Object.keys(value)) deepFreeze(value[key])
+  }
+  return value
+}
+
+function deepFreezeGeometry(features: any[]) {
+  for (const f of features) {
+    if (f && f.geometry) deepFreeze(f.geometry)
+    // freeze the feature shell, but keep .properties mutable (tooltip writes)
+    Object.freeze(f)
+  }
+  Object.freeze(features)
+}
+
 interface FilterDetails {
   column: string
   label?: string
@@ -2409,6 +2439,11 @@ const MyComponent = defineComponent({
         await this.$nextTick()
         this.incrementLoadProgress()
 
+        // Reactivity is the killer: Vue 2 deep-observes every geometry array on
+        // assignment, allocating an Observer + getter/setter closures for each
+        // of the 100k+ coordinate arrays. Freeze first so Vue treats the
+        // features as static (properties stay mutable for tooltip writes).
+        deepFreezeGeometry(boundaries)
         this.boundaries = boundaries
         this.incrementLoadProgress()
 

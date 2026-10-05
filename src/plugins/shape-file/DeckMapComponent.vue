@@ -244,39 +244,14 @@ export default defineComponent({
 
       const feat = this.features || ([] as any[])
 
-      feat.forEach((feature, f) => {
-        let coords
-        switch (feature.geometry.type) {
-          case 'Polygon':
-            coords = feature.geometry.coordinates[0]
-            hasPolygons = true
-            break
-          case 'MultiPolygon':
-            coords = feature.geometry.coordinates[0][0]
-            hasPolygons = true
-            break
-          case 'LineString':
-            coords = feature.geometry.coordinates
-            break
-          case 'MultiLineString':
-            coords = feature.geometry.coordinates[0]
-            break
-          case 'Point':
-          case 'MultiPoint':
-          default:
-            hasPolygons = true
-            return { linksData: [], hasPolygons } // no link data
-        }
+      const hasColorData = !Array.isArray(this.cbLineColor)
+      const hasWidthData = typeof this.cbLineWidth !== 'number'
 
-        if (!coords) {
-          console.warn(`---Feature ${f + 1} has no coordinates:`)
-          console.warn(feature)
-          return { linksData: [], hasPolygons } // no link data
-        }
-
-        const hasColorData = !Array.isArray(this.cbLineColor)
-        const hasWidthData = typeof this.cbLineWidth !== 'number'
-
+      // Build segment elements for one coordinate array. Shared by every
+      // geometry type so multi-part geometries get ALL their parts drawn
+      // (parity with the old double-drawn GeoJson stroke + links combo).
+      const addSegments = (coords: any, f: number) => {
+        if (!coords || coords.length < 2) return
         for (let i = 1; i < coords.length; i++) {
           const element = { path: [coords[i - 1], coords[i]] } as any
           //@ts-ignore
@@ -289,6 +264,35 @@ export default defineComponent({
           if (this.featureFilter.length) filterValues.push(this.featureFilter[f])
 
           linksData.push(element)
+        }
+      }
+
+      feat.forEach((feature, f) => {
+        switch (feature.geometry.type) {
+          case 'Polygon':
+            // outer ring + interior rings (holes), so borders still match the
+            // previous output now that the GeoJson layer stroke is disabled
+            feature.geometry.coordinates.forEach((ring: any) => addSegments(ring, f))
+            hasPolygons = true
+            break
+          case 'MultiPolygon':
+            feature.geometry.coordinates.forEach((poly: any) =>
+              poly.forEach((ring: any) => addSegments(ring, f))
+            )
+            hasPolygons = true
+            break
+          case 'LineString':
+            addSegments(feature.geometry.coordinates, f)
+            break
+          case 'MultiLineString':
+            // every part, not just the first
+            feature.geometry.coordinates.forEach((line: any) => addSegments(line, f))
+            break
+          case 'Point':
+          case 'MultiPoint':
+          default:
+            hasPolygons = true
+            return { linksData: [], hasPolygons } // no link data
         }
       })
       return { linksData, hasPolygons, filterValues }
@@ -329,7 +333,11 @@ export default defineComponent({
             pointRadiusUnits: this.pointRadiusUnits,
             pointRadiusMinPixels: 2,
             // pointRadiusMaxPixels: 50,
-            stroked: this.isStroked,
+            // Single-draw: polygon borders/lines are rendered once by the
+            // linksLayer below. Leaving stroked:true would render every outline
+            // a second time via the GeoJson path sublayers, doubling CPU
+            // tesselation and GPU buffers on link-heavy webmaps.
+            stroked: false,
             // fp64: false,
             // material: false,
             updateTriggers: {
@@ -446,6 +454,11 @@ export default defineComponent({
       // GPU memory for both maplibre AND the interleaved deck.gl overlay)
       // by 4-9x, which is the single biggest lever against tab crashes.
       pixelRatio: 1,
+      // Cut GPU render targets and maintained tile textures when several
+      // webmaps are mounted at once (Mode Shift / Emissions dashboards).
+      antialias: false,
+      maxTileCacheSize: 64,
+      fadeDuration: 0,
       // preserveDrawingBuffer defaults to false. Keeping the default (rather
       // than forcing it true for canvas screenshots) lets Chrome free each
       // rendered frame's GPU buffer, which avoids WebGL memory exhaustion
