@@ -455,9 +455,16 @@ function buildColorsBasedOnCategories(props: {
 
   // *scaleOrdinal* is the d3 function that maps categorical variables to colors.
   // *range* is the list of colors which we received;
-  // *domain* is is auto-created by d3 from data for categorical.
-
-  const setColorBasedOnCategory = scaleOrdinal().range(colorsAsRGB)
+  // *domain* is auto-created by d3 from data for categorical, UNLESS the
+  // config pins an explicit value list via colorRamp.breakpoints. An explicit
+  // domain anchors colours to values (LTS change -3/-2/-1/0) so the mapping is
+  // stable no matter the row order, which buckets are present, or whether the
+  // column was read as strings or numbers. d3 coerces both sides to strings.
+  const explicitDomain = parseBreakpoints(colorRamp.breakpoints)
+  const explicitDomainKeys = new Set(explicitDomain.map(String))
+  const setColorBasedOnCategory = explicitDomain.length
+    ? scaleOrdinal().domain(explicitDomain).range(colorsAsRGB)
+    : scaleOrdinal().range(colorsAsRGB)
 
   const gray = store.state.isDarkMode ? 48 : 228
   const rgbArray = new Uint8ClampedArray(numFeatures * 3).fill(gray)
@@ -473,6 +480,10 @@ function buildColorsBasedOnCategories(props: {
     if (props.filter[i] === -1) continue
     if (calculatedValues[i] == undefined) continue
 
+    // values outside an explicit domain render grey rather than stealing a
+    // colour (e.g. empty/unknown LTS change entries)
+    if (explicitDomain.length && !explicitDomainKeys.has(String(calculatedValues[i]))) continue
+
     const color: any = setColorBasedOnCategory(calculatedValues[i])
 
     const offset = i * 3
@@ -486,11 +497,31 @@ function buildColorsBasedOnCategories(props: {
   const colors = setColorBasedOnCategory.range() as any[]
 
   keys.forEach((key, index) => legend.push({ label: key, value: colors[index % colors.length] }))
-  legend.sort((a, b) => (a.label < b.label ? -1 : 1))
+  // sort numeric labels numerically (so -3, -2, -1, 0), else lexicographically
+  legend.sort((a, b) => {
+    const na = parseFloat(a.label)
+    const nb = parseFloat(b.label)
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+    return a.label < b.label ? -1 : 1
+  })
 
   // build the hasCategory thing
   const hasCategory = calculatedValues.map(v => !!v)
   return { rgbArray, legend, calculatedValues: null, normalizedValues: null, hasCategory }
+}
+
+/**
+ * Accept `colorRamp.breakpoints` in either of the two forms a YAML dashboard
+ * may provide them: a flow array `[-3, -2, -1, 0]` or a comma string
+ * `"-3, -2, -1, 0"`. Returns the parsed numbers (empty when absent).
+ */
+function parseBreakpoints(bp: any): number[] {
+  if (bp === undefined || bp === null) return []
+  if (Array.isArray(bp)) return bp.map(v => parseFloat(String(v))).filter(v => !Number.isNaN(v))
+  return String(bp)
+    .split(',')
+    .map(v => parseFloat(v.trim()))
+    .filter(v => !Number.isNaN(v))
 }
 
 function buildDiffDomainBreakpoints(props: {
@@ -504,7 +535,7 @@ function buildDiffDomainBreakpoints(props: {
 
   // MANUAL BREAKPOINTS
   if (colorRamp.breakpoints) {
-    const breakpoints = colorRamp.breakpoints.split(',').map((v: string) => parseFloat(v.trim()))
+    const breakpoints = parseBreakpoints(colorRamp.breakpoints)
 
     if (colorRamp.steps !== breakpoints.length + 1) {
       throw Error('Color ramp "steps" must be one larger than number of breakpoints')
@@ -789,7 +820,7 @@ function calculateManualBreakpoints(props: {
 }) {
   if (!props.options.colorRamp.breakpoints) return []
 
-  const breakpoints = props.options.colorRamp.breakpoints.split(',').map(b => parseFloat(b))
+  const breakpoints = parseBreakpoints(props.options.colorRamp.breakpoints)
   // must have correct number of breakpoints
   if (props.options.colorRamp.steps !== breakpoints.length + 1) {
     throw Error('Color ramp "steps" must be one larger than number of breakpoints')
